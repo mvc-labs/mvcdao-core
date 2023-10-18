@@ -1,0 +1,51 @@
+library RabinUtil {
+
+    static const int ORACLE_NUM = 5;
+    static const int ORACLE_VERIFY_NUM = 3;
+    static const int RABIN_HASH_TIMES = 11;
+
+    // 384 bytes, 3072 bits
+    static int RABIN_SIG_LEN = 384;
+    static int RABIN_PUBKEY_LEN = RABIN_SIG_LEN;
+    static int PADDING_SIZE_LEN = 2;
+
+    static function rabinHash(bytes x) : int {
+        // expand hash
+        bytes hash = sha256(x);
+        loop (RABIN_HASH_TIMES) {
+            hash += sha256(hash);
+        }
+        return unpack(hash + b'00');
+    }
+
+    static function verifyRabinMsg(int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray, bytes rabinMsg, bytes[RabinUtil.ORACLE_VERIFY_NUM] paddingArray, int[RabinUtil.ORACLE_VERIFY_NUM] sigArray) : bool {
+        int verifyCount = 0;
+
+        loop (RabinUtil.ORACLE_VERIFY_NUM) : i {
+            int rabinPubKey = rabinPubKeyVerifyArray[i];
+            bytes padding = paddingArray[i];
+            int h = RabinUtil.rabinHash(rabinMsg + padding);
+            int sig = sigArray[i];
+            if ((sig * sig) % rabinPubKey == h % rabinPubKey) {
+                verifyCount = verifyCount + 1;
+            }
+        }
+        require(verifyCount == RabinUtil.ORACLE_VERIFY_NUM);
+        return true;
+    }
+
+    static function verifyRabinPubKey(bytes rabinPubKeyHashArrayHash, bytes rabinPubKeyHashArray, int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyArray, int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray) : bool {
+
+        require(hash160(rabinPubKeyHashArray) == rabinPubKeyHashArrayHash);
+
+        int preIdx = -1;
+        loop (RabinUtil.ORACLE_VERIFY_NUM) : i {
+            int idx = rabinPubKeyIndexArray[i];
+            require(idx > preIdx);
+            preIdx = idx;
+            bytes rabinBytes = Utils.toLEUnsigned(rabinPubKeyArray[i], RABIN_PUBKEY_LEN);
+            require(rabinPubKeyHashArray[idx * 20 : (idx + 1) * 20] == hash160(rabinBytes));
+        }
+        return true;
+    }
+}

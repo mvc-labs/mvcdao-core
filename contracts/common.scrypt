@@ -1,0 +1,92 @@
+import "token/tokenProto.scrypt";
+import "txUtil.scrypt";
+import "uniqueProto.scrypt";
+
+library Common {
+
+    static function checkTokenInput(bytes tokenID, bytes tokenScriptCodeHash, bytes address, bytes tokenScript) : int {
+        int tokenScriptLen = len(tokenScript);
+        require(tokenID == TokenProto.getTokenID(tokenScript, tokenScriptLen));
+        require(tokenScriptCodeHash == TokenProto.getScriptCodeHash(tokenScript, tokenScriptLen));
+        require(address == TokenProto.getTokenAddress(tokenScript, tokenScriptLen));
+        int tokenInputAmount = TokenProto.getTokenAmount(tokenScript, tokenScriptLen);
+        return tokenInputAmount;
+    }
+
+    static function checkTokenInput2(bytes tokenID, bytes tokenScriptCodeHash, bytes tokenScript) : int {
+        int tokenScriptLen = len(tokenScript);
+        require(tokenID == TokenProto.getTokenID(tokenScript, tokenScriptLen));
+        require(tokenScriptCodeHash == TokenProto.getScriptCodeHash(tokenScript, tokenScriptLen));
+        int tokenInputAmount = TokenProto.getTokenAmount(tokenScript, tokenScriptLen);
+        return tokenInputAmount;
+    }
+
+    static function genRefundOutputs(bytes prevouts, bytes thisOutpoint, bytes tokenScript, bytes senderAddress, int tokenInputAmount, int tokenOutputSatoshis, bytes changeOutput) : bytes {
+
+        // refund token to user
+
+        // verify input script
+        // only three inputs enabled in order:
+        // 1. lockingContract
+        // 2. token
+        // 3. tokenUnlockContractCheck
+        require(len(prevouts) == 108);
+        require(thisOutpoint == prevouts[0 : 36]);
+
+        bytes newTokenScript = TokenProto.getNewTokenScript(tokenScript, len(tokenScript), senderAddress, tokenInputAmount);
+        bytes tokenOutput = Utils.buildOutput(newTokenScript, tokenOutputSatoshis);
+
+        bytes outputs = tokenOutput + changeOutput;
+
+        return outputs;
+    }
+
+    static function changeToken(int tokenInputAmount, int tokenRemove, bytes tokenScript, bytes address, int tokenOutputSatoshis) : bytes {
+        int changeTokenAmount = tokenInputAmount - tokenRemove;
+        bytes tokenChangeOutput = b'';
+        if (changeTokenAmount > 0) {
+            bytes newTokenScript2 = TokenProto.getNewTokenScript(tokenScript, len(tokenScript), address, changeTokenAmount);
+            tokenChangeOutput = Utils.buildOutput(newTokenScript2, tokenOutputSatoshis);
+        }
+        return tokenChangeOutput;
+    }
+
+    static function getScriptCode(bytes script) : bytes {
+        int scriptLen = len(script);
+        int dataLen = Utils.fromLEUnsigned(script[scriptLen - 5: scriptLen - 1]);
+        bytes scriptCode = script[: scriptLen - dataLen - 5];
+        return scriptCode;
+    }
+
+    static function getScriptCodeHash(bytes script) : bytes {
+        bytes scriptCode = getScriptCode(script);
+        bytes scriptCodeHash = hash160(scriptCode);
+        return scriptCodeHash;
+    }
+
+    static function verifyContractInput(bytes prevouts, int inputIndex, TxOutputProof txProof, bytes script): bool {
+        bytes outpoint = prevouts[inputIndex * TxUtil.OUTPOINT_LEN: (inputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof proof = {txProof.txHeader, txProof.hashProof, txProof.satoshiBytes, sha256(script)};
+        TxUtil.verifyTxOutput(proof, outpoint);
+        return true;
+    }
+
+    static function verifyTokenInput(bytes prevouts, int tokenInputIndex, TxOutputProof tokenTxProof, bytes tokenScript, bytes tokenID, bytes tokenScriptCodeHash): bool {
+
+        verifyContractInput(prevouts, tokenInputIndex, tokenTxProof, tokenScript);
+        int tokenScriptLen = len(tokenScript);
+        require(tokenID == TokenProto.getTokenID(tokenScript, tokenScriptLen));
+        require(tokenScriptCodeHash == TokenProto.getScriptCodeHash(tokenScript, tokenScriptLen));
+        return true;
+    }
+
+    static function verifyUniqueInput(bytes prevouts, int inputIndex, TxOutputProof txProof, bytes script, bytes uniqueID, bytes scriptCodeHash): bool {
+        verifyContractInput(prevouts, inputIndex, txProof, script);
+
+        int slen = len(script);
+        require(uniqueID == UniqueProto.getUniqueID(script, slen));
+        require(scriptCodeHash == getScriptCodeHash(script));
+        return true;
+    }
+
+}

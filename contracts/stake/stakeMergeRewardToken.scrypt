@@ -1,0 +1,62 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../token/tokenProto.scrypt";
+
+// opreturn + stakeRewardTokenHolderHash + stakeContractCodeHash + dataLen
+contract StakeMergeRewardToken {
+    bytes tokenID;
+    bytes tokenContractCodeHash;
+
+    // max input num 5 * 36
+    static const int MAX_PREVOUTS_LEN = 180;
+
+    static const int rewardTokenInputIndex = 1;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        bytes rewardTokenScript,
+        int[2] rewardTokenAmountArray,
+        // token tx proofs
+        TxOutputProof[2] tokenTxProofs,
+        // output
+        int rewardTokenOutputSatoshis,
+        Ripemd160 changeAddress,
+        int changeSatoshis
+    ) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        require(len(prevouts) == MAX_PREVOUTS_LEN);
+
+        // getDataPart
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+        bytes stakeRewardTokenHolderHash = lockingScript[scriptLen - 45 : scriptLen - 25];
+
+        // verify pool reward token input
+        int rewardTokenScriptLen = len(rewardTokenScript);
+        require(this.tokenID == TokenProto.getTokenID(rewardTokenScript, rewardTokenScriptLen));
+        require(this.tokenContractCodeHash == TokenProto.getScriptCodeHash(rewardTokenScript, rewardTokenScriptLen));
+        int sumInputTokenAmount = 0;
+        loop (2) : i {
+            sumInputTokenAmount += rewardTokenAmountArray[i];
+            bytes tokenOutpoint = prevouts[(rewardTokenInputIndex + i) * 36 : (rewardTokenInputIndex + i + 1) * 36];
+            bytes newRewardTokenScript = TokenProto.getNewTokenScript(rewardTokenScript, rewardTokenScriptLen, stakeRewardTokenHolderHash, rewardTokenAmountArray[i]);
+            TxOutputProof tokenProof = {tokenTxProofs[i].txHeader, tokenTxProofs[i].hashProof, tokenTxProofs[i].satoshiBytes, sha256(newRewardTokenScript)};
+            TxUtil.verifyTxOutput(tokenProof, tokenOutpoint);
+        }
+
+        // output
+        bytes newRewardScript = TokenProto.getNewTokenScript(rewardTokenScript, rewardTokenScriptLen, stakeRewardTokenHolderHash, sumInputTokenAmount);
+        bytes rewardTokenOutput = Utils.buildOutput(newRewardScript, rewardTokenOutputSatoshis);
+
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, changeAddress);
+
+        bytes outputs = rewardTokenOutput + changeOutput;
+
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

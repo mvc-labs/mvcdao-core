@@ -1,0 +1,194 @@
+import "../uniqueProto.scrypt";
+
+struct StakeInfo {
+    int rewardAmountFactor;
+    int rewardBeginTime;
+    int rewardEndTime;
+    int withdrawLockInterval;
+    int rewardAmountPerSecond;
+    int lastRewardTime;
+    int poolTokenAmount;
+    int unlockingPoolTokenAmount;
+    int accPoolPerShare;
+    bytes userDataMerkleRoot;
+}
+
+struct StakeContractData {
+    bytes stakeContractCodeHash;
+    bytes stakeRewardTokenHolderHash;
+    bytes stakeTokenHolderHash;
+}
+
+library StakeProto {
+    static const int OP_UPDATE_CONTRACT = 0;
+    static const int OP_DEPOSIT = 1;
+    static const int OP_WITHDRAW = 2;
+    static const int OP_PRE_WITHDRAW = 3;
+    static const int OP_FINISH_WITHDRAW = 4;
+    static const int OP_HARVEST = 5;
+    static const int OP_ADMIN = 6;
+    static const int OP_VOTE = 7;
+
+    // opreturn: ownerAddress(20 bytes) + rewardAmountFactor<8 bytes> + rewardBeginTime(4 bytes) + rewardEndBlock(4 bytes) + withdrawLockInterval<4 bytes> rewardAmountPerSecond<8 bytes> + lastRewardTime<4 bytes> + poolTokenAmount<8 bytes> + unlockingPoolTokenAmount<8 bytes> + accPoolPerShare<16 bytes> + userDataMerkleRoot<32 bytes> + <blockHeightRabinPubKeyHashArrayHash<20 bytes> + stakeTokenHolderHash<20 bytes> + stakeRewardTokenHolderHash<20 bytes> + <contractHashRoot<20 bytes>>
+
+    static const int OP_PUSH_DATA_LEN = 3;
+    static const int REWARD_AMOUNT_FACTOR_LEN = 8;
+    static const int WITHDRAW_LOCK_INTERVAL_LEN = 4;
+    static const int REWARD_AMOUNT_PER_SECOND_LEN = 8;
+    static const int POOL_TOKEN_AMOUNT_LEN = 8;
+    static const int ACC_POOL_PER_SHARE_LEN = 16;
+    static const int USER_DATA_MERKLE_ROOT_LEN = 32;
+
+    static const int CONTRACT_HASH_ROOT_OFFSET = UniqueProto.FIX_HEADER_LEN + ProtoHeader.HASH_LEN;
+    static const int STAKE_REWARD_TOKEN_HOLDER_HASH_OFFSET = CONTRACT_HASH_ROOT_OFFSET + ProtoHeader.HASH_LEN;
+    static const int STAKE_TOKEN_HOLDER_HASH_OFFSET = STAKE_REWARD_TOKEN_HOLDER_HASH_OFFSET + ProtoHeader.HASH_LEN;
+    static const int BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET = STAKE_TOKEN_HOLDER_HASH_OFFSET + ProtoHeader.HASH_LEN;
+    static const int USER_DATA_MERKLE_ROOT_OFFSET = BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET + USER_DATA_MERKLE_ROOT_LEN;
+    static const int ACC_POOL_PER_SHARE_OFFSET = USER_DATA_MERKLE_ROOT_OFFSET + ACC_POOL_PER_SHARE_LEN;
+    static const int UNLOCKING_POOL_TOKEN_AMOUNT_OFFSET = ACC_POOL_PER_SHARE_OFFSET + POOL_TOKEN_AMOUNT_LEN;
+    static const int POOL_TOKEN_AMOUNT_OFFSET = UNLOCKING_POOL_TOKEN_AMOUNT_OFFSET + POOL_TOKEN_AMOUNT_LEN;
+    static const int LAST_REWARD_TIME_OFFSET = POOL_TOKEN_AMOUNT_OFFSET + ProtoHeader.TIMESTAMP_LEN;
+    static const int REWARD_AMOUNT_PER_SECOND_OFFSET = LAST_REWARD_TIME_OFFSET + REWARD_AMOUNT_PER_SECOND_LEN;
+    static const int WITHDRAW_LOCK_INTERVAL_OFFSET = REWARD_AMOUNT_PER_SECOND_OFFSET + WITHDRAW_LOCK_INTERVAL_LEN;
+    static const int REWARD_END_TIME_OFFSET = WITHDRAW_LOCK_INTERVAL_OFFSET + ProtoHeader.TIMESTAMP_LEN;
+    static const int REWARD_BEGIN_TIME_OFFSET = REWARD_END_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN;
+    static const int REWARD_AMOUNT_FACTOR_OFFSET = REWARD_BEGIN_TIME_OFFSET + REWARD_AMOUNT_FACTOR_LEN;
+    static const int OWNER_ADDRESS_OFFSET = REWARD_AMOUNT_FACTOR_OFFSET + ProtoHeader.ADDRESS_LEN;
+
+    static const int DATA_OFFSET = OWNER_ADDRESS_OFFSET + OP_PUSH_DATA_LEN;
+
+    static function getOwnerAddress(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - OWNER_ADDRESS_OFFSET: slen - OWNER_ADDRESS_OFFSET + ProtoHeader.ADDRESS_LEN];
+    }
+
+    static function getrewardBiginTime(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - REWARD_BEGIN_TIME_OFFSET: slen - REWARD_BEGIN_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN]);
+    }
+
+    static function getrewardEndTime(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - REWARD_END_TIME_OFFSET: slen - REWARD_END_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN]);
+    }
+
+    static function getRewardAmountFactor(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - REWARD_AMOUNT_FACTOR_OFFSET: slen - REWARD_AMOUNT_FACTOR_OFFSET + REWARD_AMOUNT_FACTOR_LEN]);
+    }
+
+    static function getWithdrawLockInterval(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - WITHDRAW_LOCK_INTERVAL_OFFSET: slen - WITHDRAW_LOCK_INTERVAL_OFFSET + WITHDRAW_LOCK_INTERVAL_LEN]);
+    }
+
+    static function getrewardAmountPerSecond(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - REWARD_AMOUNT_PER_SECOND_OFFSET: slen - REWARD_AMOUNT_PER_SECOND_OFFSET + REWARD_AMOUNT_PER_SECOND_LEN]);
+    }
+
+    static function getlastRewardTime(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - LAST_REWARD_TIME_OFFSET: slen - LAST_REWARD_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN]);
+    }
+
+    static function getPoolTokenAmount(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - POOL_TOKEN_AMOUNT_OFFSET: slen - POOL_TOKEN_AMOUNT_OFFSET + POOL_TOKEN_AMOUNT_LEN]);
+    }
+
+    static function getUnlockingPoolTokenAmount(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - UNLOCKING_POOL_TOKEN_AMOUNT_OFFSET: slen - UNLOCKING_POOL_TOKEN_AMOUNT_OFFSET + POOL_TOKEN_AMOUNT_LEN]);
+    }
+
+    static function getAccPoolPerShare(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - ACC_POOL_PER_SHARE_OFFSET: slen - ACC_POOL_PER_SHARE_OFFSET + ACC_POOL_PER_SHARE_LEN]);
+    }
+
+    static function getUserDataMerkleRoot(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - USER_DATA_MERKLE_ROOT_OFFSET: slen - USER_DATA_MERKLE_ROOT_OFFSET + USER_DATA_MERKLE_ROOT_LEN];
+    }
+
+    static function getBlockNumRabinPubKeyHashArrayHash(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET: slen - BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET + ProtoHeader.HASH_LEN];
+    }
+
+    static function getStakeTokenHolderHash(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - STAKE_TOKEN_HOLDER_HASH_OFFSET: slen - STAKE_TOKEN_HOLDER_HASH_OFFSET + ProtoHeader.HASH_LEN];
+    }
+
+    static function getStakeRewardTokenHolderHash(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - STAKE_REWARD_TOKEN_HOLDER_HASH_OFFSET: slen - STAKE_REWARD_TOKEN_HOLDER_HASH_OFFSET + ProtoHeader.HASH_LEN];
+    }
+
+    static function getStakeData(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - STAKE_TOKEN_HOLDER_HASH_OFFSET: slen - STAKE_REWARD_TOKEN_HOLDER_HASH_OFFSET + ProtoHeader.HASH_LEN];
+    }
+
+    static function getScriptCode(bytes script, int slen) : bytes {
+        return script[: slen - DATA_OFFSET];
+    }
+
+    static function getScriptCodeHash(bytes script, int slen) : bytes {
+        return hash160(getScriptCode(script, slen));
+    }
+
+    static function getContractHashRoot(bytes script, int slen): bytes {
+        return script[slen - CONTRACT_HASH_ROOT_OFFSET: slen - CONTRACT_HASH_ROOT_OFFSET + ProtoHeader.HASH_LEN];
+    }
+
+    static function getStakeInfo(bytes script): StakeInfo {
+        StakeInfo info = {0, 0, 0, 0, 0, 0, 0, 0, 0, b''};
+
+        info.rewardAmountFactor = getRewardAmountFactor(script);
+        info.rewardBeginTime = getrewardBiginTime(script);
+        info.rewardEndTime = getrewardEndTime(script);
+        info.withdrawLockInterval = getWithdrawLockInterval(script);
+        info.rewardAmountPerSecond = getrewardAmountPerSecond(script);
+        info.lastRewardTime = getlastRewardTime(script);
+        info.poolTokenAmount = getPoolTokenAmount(script);
+        info.unlockingPoolTokenAmount = getUnlockingPoolTokenAmount(script);
+        info.accPoolPerShare = getAccPoolPerShare(script);
+        info.userDataMerkleRoot = getUserDataMerkleRoot(script);
+        return info;
+    }
+
+    static function getNewStakeScript(bytes script, int lastRewardTime, int poolTokenAmount, int unlockingPoolTokenAmount, int accPoolPerShare, bytes userDataMerkleRoot): bytes {
+        int slen = len(script);
+        return script[: slen - LAST_REWARD_TIME_OFFSET] + Utils.toLEUnsigned(lastRewardTime, ProtoHeader.TIMESTAMP_LEN) + Utils.toLEUnsigned(poolTokenAmount, POOL_TOKEN_AMOUNT_LEN) + Utils.toLEUnsigned(unlockingPoolTokenAmount, POOL_TOKEN_AMOUNT_LEN) + Utils.toLEUnsigned(accPoolPerShare, ACC_POOL_PER_SHARE_LEN) + userDataMerkleRoot + script[slen - USER_DATA_MERKLE_ROOT_OFFSET + USER_DATA_MERKLE_ROOT_LEN:];
+    }
+
+    static function getNewScriptFromAdmin(bytes script, int rewardBeginTime, int rewardEndTime, int rewardAmountPerSecond, int lastRewardTime, int withdrawLockInterval): bytes {
+        int slen = len(script);
+        return script[: slen - REWARD_BEGIN_TIME_OFFSET] + Utils.toLEUnsigned(rewardBeginTime, ProtoHeader.TIMESTAMP_LEN) + Utils.toLEUnsigned(rewardEndTime, ProtoHeader.TIMESTAMP_LEN) + Utils.toLEUnsigned(withdrawLockInterval, WITHDRAW_LOCK_INTERVAL_LEN) + Utils.toLEUnsigned(rewardAmountPerSecond, REWARD_AMOUNT_PER_SECOND_LEN) + Utils.toLEUnsigned(lastRewardTime, ProtoHeader.TIMESTAMP_LEN) + script[slen - LAST_REWARD_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN:];
+    }
+
+    static function getNewStakeScriptFromContractHashRoot(bytes script, bytes contractHashRoot): bytes {
+        int slen = len(script);
+        return script[: slen - CONTRACT_HASH_ROOT_OFFSET] + contractHashRoot + script[slen - CONTRACT_HASH_ROOT_OFFSET + ProtoHeader.HASH_LEN:];
+    }
+
+    static function getOpContractData(bytes script): StakeContractData {
+        int slen = len(script);
+        StakeContractData data = {b'', b'', b''};
+        data.stakeContractCodeHash = script[slen - 25: slen - 5];
+        data.stakeRewardTokenHolderHash = script[slen - 45: slen - 25];
+        data.stakeTokenHolderHash = script[slen - 65: slen - 45];
+        return data;
+    }
+
+    static function getNewScriptWithCustomData(bytes script, int slen, bytes customData) : bytes {
+        return script[: slen - OWNER_ADDRESS_OFFSET] + customData + script[slen - UniqueProto.CUSTOM_DATA_SIZE_OFFSET :];
+    }
+
+    static function getNewScriptFromNewContractHashRoot(bytes script, int slen, bytes newHashMerkleRoot) : bytes {
+        return script[: slen - CONTRACT_HASH_ROOT_OFFSET] + newHashMerkleRoot + script[slen - CONTRACT_HASH_ROOT_OFFSET + ProtoHeader.HASH_LEN :];
+    }
+}

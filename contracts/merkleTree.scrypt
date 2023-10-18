@@ -1,0 +1,54 @@
+library MerkleTree {
+
+  // tree height is height + 1
+  static const int HEIGHT = 24;
+
+  static function updateLeaf(bytes oldLeaf,
+    bytes newLeaf,
+    bytes merklePath,
+    bytes oldMerkleRoot) : bytes {
+
+    bytes oldMerkleValue = oldLeaf;
+    bytes newMerkleValue = newLeaf;
+
+    loop (HEIGHT): i {
+      int left = unpack(merklePath[i * 33 + 32 : i * 33 + 33]);
+      bytes neighbor = merklePath[i * 33 : i * 33 + 32];
+
+      if (left) {
+        oldMerkleValue = sha256(oldMerkleValue + neighbor);
+        newMerkleValue = sha256(newMerkleValue + neighbor);
+      } else {
+        oldMerkleValue = sha256(neighbor + oldMerkleValue);
+        newMerkleValue = sha256(neighbor + newMerkleValue);
+      }
+    }
+
+    require(oldMerkleValue == oldMerkleRoot);
+
+    return newMerkleValue;
+  }
+
+  static function verifyLeaf(
+    bytes leaf,
+    bytes merklePath,
+    bytes merkleRoot): bool {
+
+    bytes merkleValue = leaf;
+
+    loop (HEIGHT): i {
+      int left = unpack(merklePath[i * 33 + 32 : i * 33 + 33]);
+      bytes neighbor = merklePath[i * 33 : i * 33 + 32];
+
+      if (left) {
+        merkleValue = sha256(merkleValue + neighbor);
+      } else {
+        merkleValue = sha256(neighbor + merkleValue);
+      }
+    }
+
+    require(merkleValue == merkleRoot);
+
+    return true;
+  }
+}

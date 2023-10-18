@@ -1,0 +1,68 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../uniqueProto.scrypt";
+
+// opreturn: stakeCodeHash
+contract StakeAdmin {
+    bytes stakeID;
+    Ripemd160 adminAddress;
+
+    // max input num 3 * 36
+    static const int MAX_PREVOUTS_LEN = 72;
+
+    static const int stakeInputIndex = 1;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        // sig
+        PubKey adminPubKey,
+        Sig adminSig,
+        // stake tx proof
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // admin args
+        int rewardBeginTime,
+        int rewardEndTime,
+        int rewardAmountPerSecond,
+        int lastRewardTime,
+        int withdrawLockInterval,
+        // output
+        Ripemd160 changeAddress,
+        int changeSatoshis) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        require(len(prevouts) == MAX_PREVOUTS_LEN);
+
+        // check sig
+        require(hash160(adminPubKey) == this.adminAddress);
+        require(checkSig(adminSig, adminPubKey));
+
+        // getDataPart
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+        bytes stakeContractCodeHash = lockingScript[scriptLen - 25 : scriptLen - 5];
+
+        // verify stake input
+        int stakeScriptLen = len(stakeScript);
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN : (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = {stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript)};
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+        require(this.stakeID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+        require(stakeContractCodeHash == StakeProto.getScriptCodeHash(stakeScript, stakeScriptLen));
+
+        // stake output
+        bytes newStakeScript = StakeProto.getNewScriptFromAdmin(stakeScript, rewardBeginTime, rewardEndTime, rewardAmountPerSecond, lastRewardTime, withdrawLockInterval);
+        int stakeOutputSatoshis = Utils.fromLEUnsigned(stakeTxProof.satoshiBytes);
+        bytes stakeOutput = Utils.buildOutput(newStakeScript, stakeOutputSatoshis);
+
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, changeAddress);
+
+        bytes outputs = stakeOutput + changeOutput;
+
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

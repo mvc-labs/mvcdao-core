@@ -1,0 +1,62 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../uniqueProto.scrypt";
+import "../uniqueCommon.scrypt";
+import "../backtrace.scrypt";
+
+// opreturn: rewardAmountFactor<8 bytes> + rewardAmountPerSecond<8 bytes> + lastRewardTime<4 bytes> + poolTokenAmount<8 bytes> + accPoolPerShare<16 bytes> + userDataMerkleRoot<32 bytes> + <blockHeightRabinPubKeyHashArrayHash<20 bytes> + stakeTokenHolderHash<20 bytes> + stakeRewardTokenHolderHash<20 bytes> + <contractHashRoot<20 bytes>>
+contract StakeMain {
+
+    //static const int opContractInputIndex = 0;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        // op contract hash proof
+        TxOutputProof opContractTxProof,
+        bytes opContractTxScript,
+        // main contract hash proof
+        bytes mainContractHashProof,
+        int mainContractHashIndex,
+        // tx proof
+        int prevTxInputIndex,
+        bytes txHeader,
+        TxInputProof txInputProof,
+        TxOutputProof prevTxOutputProof,
+        bytes prevCustomData) {
+
+        // verify this tx's version
+        require(Utils.fromLEUnsigned(SigHash.nVersion(txPreimage)) == ProtoHeader.TX_VERSION);
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+
+        bytes mainScript = SigHash.scriptCode(txPreimage);
+        int mainScriptLen = len(mainScript);
+        
+        // verify txOutputProof
+        bytes thisOutpoint = SigHash.outpoint(txPreimage);
+
+        // unlock from contract
+        bytes mainContractHashRoot = StakeProto.getContractHashRoot(mainScript, mainScriptLen);
+        UniqueCommon.verifyContractHashProof(prevouts, opContractTxProof, opContractTxScript, mainContractHashRoot, mainContractHashProof, mainContractHashIndex);
+
+        // verify contractHash data
+        int opContractScriptLen = len(opContractTxScript);
+        bytes mainScriptCodeHash = opContractTxScript[opContractScriptLen - 25 : opContractScriptLen - 5];
+        require(mainScriptCodeHash == StakeProto.getScriptCodeHash(mainScript, mainScriptLen));
+
+        bytes stakeData = opContractTxScript[opContractScriptLen - 65 : opContractScriptLen - 25];
+        require(stakeData == StakeProto.getStakeData(mainScript));
+
+        // backtrace
+        bytes genesisTxid = UniqueProto.getGenesisTxid(mainScript, mainScriptLen);
+        if (genesisTxid[:32] != hash256(prevTxOutputProof.txHeader)) {
+            bytes prevMainScript = StakeProto.getNewScriptWithCustomData(mainScript, mainScriptLen, prevCustomData);
+            require(sha256(prevMainScript) == prevTxOutputProof.scriptHash);
+        }
+        Backtrace.verify(thisOutpoint, txHeader, prevTxInputIndex, prevTxOutputProof, genesisTxid, txInputProof);
+
+        require(Tx.checkPreimageSigHashType(txPreimage, ProtoHeader.SIG_HASH_ALL));
+    }
+}

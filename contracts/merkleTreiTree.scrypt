@@ -1,0 +1,29 @@
+library MerkleTreiTree {
+    static const int NEIGHBOR_LEN = 5100;
+    static const int height = 20;
+
+    static function updateLeaf(
+        bytes oldLeaf,
+        int key,
+        bytes newLeaf,
+        bytes merklePath,
+        bytes oldMerkleRoot) : bytes {
+
+        bytes oldMerkleValue = oldLeaf;
+        bytes newMerkleValue = newLeaf;
+
+        loop(height): i {
+            int index = key % 256;
+            key = key / 256;
+            int rightNum = 255 - index;
+            int pos = i * NEIGHBOR_LEN + index * 20;
+            bytes leftNeighbor = merklePath[i * NEIGHBOR_LEN: pos];
+
+            bytes rightNeighbor = merklePath[pos: pos + rightNum * 20];
+            oldMerkleValue = hash160(leftNeighbor + oldMerkleValue + rightNeighbor);
+            newMerkleValue = hash160(leftNeighbor + newMerkleValue + rightNeighbor);
+        }
+        require(oldMerkleValue == oldMerkleRoot);
+        return newMerkleValue;
+    }
+}

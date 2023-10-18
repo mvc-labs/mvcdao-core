@@ -1,0 +1,142 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../uniqueProto.scrypt";
+import "stakeCommon.scrypt";
+import "../MerkleTree.scrypt";
+import "../blockHeight.scrypt";
+import "../common.scrypt";
+import "voteProto.scrypt";
+import "../merkleTreiTree.scrypt";
+
+contract StakeVote {
+    bytes stakeID;
+
+    //  4 * 36
+    static const int MAX_PREVOUTS_LEN = 144;
+    
+    static const int stakeInputIndex = 1;
+    static const int voteInputIndex = 2;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        // sig
+        PubKey pubkey,
+        Sig sig,
+        // vote
+        bool confirmVote, // true means vote, false means cancel vote
+        int voteOption,
+        // stake tx proof
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // vote
+        bytes voteScript,
+        TxOutputProof voteTxProof,
+        // block height
+        BlockRabinData blockRabinData,
+        // stake user data merkle
+        bytes leaf,
+        bytes merklePath,
+        // vote leaf
+        bytes oldVoteLeaf,
+        bytes voteMerklePath,
+        // vote data
+        bytes voteSumData,
+        // output
+        int voteOutputSatoshis,
+        Ripemd160 changeAddress,
+        int changeSatoshis,
+        bytes opReturnScript
+    ) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        require(len(prevouts) <= MAX_PREVOUTS_LEN);
+
+        // getDataPart
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+        bytes stakeContractCodeHash = lockingScript[scriptLen - 25: scriptLen - 5];
+        bytes voteMainCodeHash = lockingScript[scriptLen - 85: scriptLen - 65];
+
+        // verify stake input
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN: (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = {stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript)};
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+
+        int stakeScriptLen = len(stakeScript);
+        require(stakeContractCodeHash == StakeProto.getScriptCodeHash(stakeScript, stakeScriptLen));
+        require(this.stakeID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+
+        // verify blockNum rabin msg
+        int curBlockTime = StakeCommon.verifyBlockRabinMsg(stakeScript, prevouts, stakeInputIndex, blockRabinData, 0);
+
+        int voteBeginTime = VoteProto.getBeginBlockTime(voteScript);
+        int voteEndTime = VoteProto.getEndBlockTime(voteScript);
+        require(curBlockTime >= voteBeginTime && curBlockTime < voteEndTime);
+
+        // verify vote input
+        int voteScriptLen = len(voteScript);
+        bytes voteOutpoint = prevouts[voteInputIndex * TxUtil.OUTPOINT_LEN: (voteInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof voteProof = {voteTxProof.txHeader, voteTxProof.hashProof, voteTxProof.satoshiBytes, sha256(voteScript)};
+        TxUtil.verifyTxOutput(voteProof, voteOutpoint);
+        require(voteMainCodeHash == VoteProto.getScriptCodeHash(voteScript, voteScriptLen));
+
+        // verify stake leaf data
+        bytes userDataMerkleRoot = StakeProto.getUserDataMerkleRoot(stakeScript);
+        MerkleTree.verifyLeaf(sha256(leaf), merklePath, userDataMerkleRoot);
+
+        LeafData stakeLeafData = StakeCommon.getLeafData(leaf);
+        // check sig
+        require(stakeLeafData.address == hash160(pubkey));
+        require(checkSig(sig, pubkey));
+
+        // verify vote data
+        VoteLeafData voteLeafData = VoteProto.getVoteLeafData(oldVoteLeaf);
+        if (Utils.fromLEUnsigned(voteLeafData.address) != 0) {
+            require(voteLeafData.address == stakeLeafData.address);
+        }
+
+        // verify voteSumData
+        require(hash160(voteSumData) == VoteProto.getVoteDataHashRoot(voteScript));
+        require(voteOption < len(voteSumData) / 8);
+        
+        bytes newVoteSumData = VoteProto.updateVoteSumData(voteSumData, voteLeafData.option, -voteLeafData.voteAmount);
+        bytes newVoteLeaf = VoteProto.genVoteLeaf(stakeLeafData.address, 0, 0);
+        if (confirmVote) {
+            newVoteSumData = VoteProto.updateVoteSumData(newVoteSumData, voteOption, stakeLeafData.tokenAmount);
+            newVoteLeaf = VoteProto.genVoteLeaf(stakeLeafData.address, voteOption, stakeLeafData.tokenAmount);
+        } else {
+            require(voteLeafData.voteAmount > 0);
+        }
+
+        int key = Utils.fromLEUnsigned(stakeLeafData.address);
+        bytes oldUserDataRoot = VoteProto.getUserDataMerkleRoot(voteScript);
+        bytes newUserDataRoot = MerkleTreiTree.updateLeaf(hash160(oldVoteLeaf), key, hash160(newVoteLeaf), voteMerklePath, oldUserDataRoot);
+
+        // output
+        // stake output
+        int stakeOutputSatoshis = Utils.fromLEUnsigned(stakeTxProof.satoshiBytes);
+        bytes stakeOutput = Utils.buildOutput(stakeScript, stakeOutputSatoshis);
+
+        // vote output
+        bytes newVoteDataHashRoot = hash160(newVoteSumData);
+        bytes newVoteScript = VoteProto.getNewVoteScript(voteScript, newUserDataRoot, newVoteDataHashRoot);
+        bytes voteOutput = Utils.buildOutput(newVoteScript, voteOutputSatoshis);
+
+        // change output
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, changeAddress);
+
+        // op_false op_return output
+        bytes opReturnOutput = b'';
+        if (len(opReturnScript) > 0) {
+          require(opReturnScript[0:2] == b'006a');
+          opReturnOutput = Utils.buildOutput(opReturnScript, 0);
+        }
+
+        bytes outputs = stakeOutput + voteOutput + opReturnOutput + changeOutput;
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

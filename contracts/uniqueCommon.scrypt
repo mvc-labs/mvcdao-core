@@ -1,0 +1,26 @@
+import "txUtil.scrypt";
+import "protoHeader.scrypt";
+
+library UniqueCommon {
+
+    static function verifyContractHashProof(bytes prevouts,
+        // contract tx hash proof
+        TxOutputProof contractTxProof,
+        bytes contractTxScript,
+        // hash proof for main contract hash contract root
+        bytes mainContractHashRoot,
+        bytes mainContractHashProof,
+        int mainContractHashIndex) : bool {
+
+        // verify the contractTxProof
+        require(sha256(contractTxScript) == contractTxProof.scriptHash);
+        bytes contractOutpoint = prevouts[:TxUtil.OUTPOINT_LEN];
+        TxUtil.verifyTxOutput(contractTxProof, contractOutpoint);
+
+        // verify main contract hash root
+        bytes contractScriptCodeHash = hash160(ProtoHeader.getScriptCode(contractTxScript, len(contractTxScript)));
+        require(contractScriptCodeHash == mainContractHashProof[mainContractHashIndex * 20: (mainContractHashIndex + 1) * 20]);
+        require(mainContractHashRoot == hash160(mainContractHashProof));
+        return true;
+    }
+}

@@ -1,0 +1,92 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../uniqueProto.scrypt";
+import "../token/tokenProto.scrypt";
+import "stakeCommon.scrypt";
+import "../MerkleTree.scrypt";
+import "../blockHeight.scrypt";
+import "../common.scrypt";
+
+// opreturn: senderAddress + stakeTokenHolderHash + stakeRewardTokenHolderHash + stakeContractCodeHash + data_len
+contract StakeDeposit {
+    bytes stakeID;
+
+    // max input num 3 * 36
+    static const int MAX_PREVOUTS_LEN = 108;
+
+    static const int stakeInputIndex = 1;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        int mvcAddAmount, // unit: satoshis
+        // stake tx proof
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // block height
+        BlockRabinData blockRabinData,
+        // user data merkle
+        bytes oldLeaf,
+        bytes merklePath,
+        // output
+        Ripemd160 changeAddress,
+        int changeSatoshis
+    ) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        require(len(prevouts) <= MAX_PREVOUTS_LEN);
+
+        // getDataPart
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        StakeContractData contractData = StakeProto.getOpContractData(lockingScript);
+        int scriptLen = len(lockingScript);
+        bytes senderAddress = lockingScript[scriptLen - 85 : scriptLen - 65];
+
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, changeAddress);
+
+        bytes outputs = b'';
+        // verify stake input
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN: (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = {stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript)};
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+
+        StakeInfo stakeInfo = StakeCommon.checkStakeInput(stakeScript, this.stakeID, contractData.stakeContractCodeHash);
+
+        // verify blockNum rabin msg
+        int curBlockTime = StakeCommon.verifyBlockRabinMsg(stakeScript, prevouts, stakeInputIndex, blockRabinData, stakeInfo.lastRewardTime);
+
+        // updatePool
+        int newAccPoolPerShare = StakeCommon.updatePool(stakeInfo, curBlockTime);
+
+        int newPoolMvcAmount = stakeInfo.poolTokenAmount + mvcAddAmount;
+
+        LeafData data = StakeCommon.getLeafData(oldLeaf);
+        if (data.address != senderAddress) {
+            require(data.tokenAmount == 0 && data.rewardDebt == 0);
+            require(len(data.unlockingTokens) == 0);
+            data.address = senderAddress;
+        }
+        data.tokenAmount += mvcAddAmount;
+        data.rewardDebt += mvcAddAmount * newAccPoolPerShare / stakeInfo.rewardAmountFactor;
+
+        bytes newLeaf = StakeCommon.genNewLeaf(data);
+
+        // update user data
+        bytes newUserDataMerkleRoot = MerkleTree.updateLeaf(sha256(oldLeaf), sha256(newLeaf), merklePath, stakeInfo.userDataMerkleRoot);
+
+        int stakeOutputSatoshis = Utils.fromLEUnsigned(stakeTxProof.satoshiBytes) + mvcAddAmount;
+        int stakeMvcAmount = stakeInfo.poolTokenAmount + stakeInfo.unlockingPoolTokenAmount;
+        require(stakeOutputSatoshis > stakeMvcAmount);
+
+        // stake output
+        bytes newStakeScript = StakeProto.getNewStakeScript(stakeScript, curBlockTime, newPoolMvcAmount, stakeInfo.unlockingPoolTokenAmount, newAccPoolPerShare, newUserDataMerkleRoot);
+        bytes stakeOutput = Utils.buildOutput(newStakeScript, stakeOutputSatoshis);
+
+        outputs = stakeOutput + changeOutput;
+
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

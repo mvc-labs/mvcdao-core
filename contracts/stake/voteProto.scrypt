@@ -1,0 +1,107 @@
+import "../uniqueProto.scrypt";
+import "../protoheader.scrypt";
+
+struct VoteLeafData {
+    bytes address; // 20 bytes
+    int option; // 2 bytes
+    int voteAmount; // 8 bytes
+}
+
+library VoteProto {
+
+    static const int OP_PUSH_DATA_LEN = 2;
+
+    // opreturn: ownerAddress(20 bytes) + minVoteAmount<8 bytes> + beginBlockTime<4 bytes> + endBlockTime<4 bytes> + userDataMerkleRoot<20 bytes> + voteDataHashRoot<20 bytes> + blockHeightRabinPubKeyHashArrayHash<20 bytes> + contractHashRoot<20 bytes>
+    static const int OWNER_ADDRESS_LEN = 20;
+    static const int MIN_VOTE_AMOUNT_LEN = 8;
+    static const int VOTE_DATA_HASH_ROOT_LEN = 20;
+    static const int USER_DATA_MERKLE_ROOT_LEN = 20;
+    static const int BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_LEN = 20;
+    static const int CONTRACT_HASH_ROOT_LEN = 20;
+
+    static const int CONTRACT_HASH_ROOT_OFFSET = UniqueProto.FIX_HEADER_LEN + CONTRACT_HASH_ROOT_LEN;
+    static const int BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET = CONTRACT_HASH_ROOT_OFFSET + BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_LEN;
+    static const int VOTE_DATA_HASH_ROOT_OFFSET = BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET + VOTE_DATA_HASH_ROOT_LEN;
+    static const int USER_DATA_MERKLE_ROOT_OFFSET = VOTE_DATA_HASH_ROOT_OFFSET + USER_DATA_MERKLE_ROOT_LEN;
+    static const int END_BLOCK_TIME_OFFSET = USER_DATA_MERKLE_ROOT_OFFSET + ProtoHeader.TIMESTAMP_LEN;
+    static const int BEGIN_BLOCK_TIME_OFFSET = END_BLOCK_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN;
+    static const int MIN_VOTE_AMOUNT_OFFSET = BEGIN_BLOCK_TIME_OFFSET + MIN_VOTE_AMOUNT_LEN;
+    static const int OWNER_ADDRESS_OFFSET = MIN_VOTE_AMOUNT_OFFSET + OWNER_ADDRESS_LEN;
+
+    static const int DATA_OFFSET = OWNER_ADDRESS_OFFSET + OP_PUSH_DATA_LEN;
+
+    static function getOwnerAddress(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - OWNER_ADDRESS_OFFSET: slen - OWNER_ADDRESS_OFFSET + OWNER_ADDRESS_LEN];
+    }
+
+    static function getMinVoteAmount(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - MIN_VOTE_AMOUNT_OFFSET: slen - MIN_VOTE_AMOUNT_OFFSET + MIN_VOTE_AMOUNT_LEN]);
+    }
+
+    static function getBeginBlockTime(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - BEGIN_BLOCK_TIME_OFFSET: slen - BEGIN_BLOCK_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN]);
+    }
+
+    static function getEndBlockTime(bytes script): int {
+        int slen = len(script);
+        return Utils.fromLEUnsigned(script[slen - END_BLOCK_TIME_OFFSET: slen - END_BLOCK_TIME_OFFSET + ProtoHeader.TIMESTAMP_LEN]);
+    }
+
+    static function getUserDataMerkleRoot(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - USER_DATA_MERKLE_ROOT_OFFSET: slen - USER_DATA_MERKLE_ROOT_OFFSET + USER_DATA_MERKLE_ROOT_LEN];
+    }
+
+    static function getVoteDataHashRoot(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - VOTE_DATA_HASH_ROOT_OFFSET: slen - VOTE_DATA_HASH_ROOT_OFFSET + VOTE_DATA_HASH_ROOT_LEN];
+    }
+
+    static function getBlockNumRabinPubKeyHashArrayHash(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET: slen - BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET + BLOCK_HEIGHT_RABIN_PUBKEY_HASH_ARRAY_HASH_LEN];
+    }
+
+    static function getContractHashRoot(bytes script): bytes {
+        int slen = len(script);
+        return script[slen - CONTRACT_HASH_ROOT_OFFSET: slen - CONTRACT_HASH_ROOT_OFFSET + CONTRACT_HASH_ROOT_LEN];
+    }
+
+    static function getNewVoteScript(bytes script, bytes userDataMerkleRoot, bytes voteDataHashRoot): bytes {
+        int slen = len(script);
+        return script[: slen - USER_DATA_MERKLE_ROOT_OFFSET] + userDataMerkleRoot + voteDataHashRoot + script[slen - VOTE_DATA_HASH_ROOT_OFFSET + VOTE_DATA_HASH_ROOT_LEN:];
+    }
+
+    // leaf data
+    static function getVoteLeafData(bytes leaf): VoteLeafData {
+        VoteLeafData data = {b'', 0, 0};
+        data.address = leaf[: 20];
+        data.option = Utils.fromLEUnsigned(leaf[20: 22]);
+        data.voteAmount = Utils.fromLEUnsigned(leaf[22: 30]);
+        return data;
+    }
+
+    static function genVoteLeaf(bytes address, int option, int voteAmount): bytes {
+        return address + Utils.toLEUnsigned(option, 2) + Utils.toLEUnsigned(voteAmount, 8);
+    }
+
+    static function updateVoteSumData(bytes voteData, int option, int changeAmount): bytes {
+        return voteData[ : option * 8] + Utils.toLEUnsigned(Utils.fromLEUnsigned(voteData[option * 8: (option +  1) * 8]) + changeAmount, 8) + voteData[(option + 1) * 8: ];
+    }
+
+    static function getScriptCode(bytes script, int slen): bytes {
+        return script[: slen - DATA_OFFSET];
+    }
+
+    static function getScriptCodeHash(bytes script, int slen): bytes {
+        bytes scriptCode = getScriptCode(script, slen);
+        return hash160(scriptCode);
+    }
+
+    static function getNewScriptWithCustomData(bytes script, int slen, bytes customData) : bytes {
+        return script[: slen - OWNER_ADDRESS_OFFSET] + customData + script[slen - UniqueProto.CUSTOM_DATA_SIZE_OFFSET :];
+    }
+}

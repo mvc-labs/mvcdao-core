@@ -1,0 +1,121 @@
+import "stakeProto.scrypt";
+import "../blockHeight.scrypt";
+
+struct LeafData {
+    int version; // 4 bytes
+    bytes address; // 20 bytes
+    int tokenAmount; // 8 bytes
+    int rewardDebt; // 16 bytes
+    bytes delegatee; // 20 bytes
+    int delegatedVotes; // 8 bytes
+    bytes unlockingTokens;
+}
+
+struct WithdrawExpiredRes {
+    int amount;
+    bytes leafBytes;
+}
+
+library StakeCommon {
+    
+    static const int MIN_LEAF_NODE_LENGTH = 76;
+
+    static const int WITHDRAW_LIMIT = 5;
+    static const int UNLOCKING_TOKEN_INFO_LEN = 12;
+
+    static const int LEAF_DATA_VERSION = 0;
+
+    static function updatePool(StakeInfo stakeInfo, int curBlockTime) : int {
+        int accPoolPerShare = stakeInfo.accPoolPerShare;
+        if (stakeInfo.poolTokenAmount > 0 && curBlockTime > stakeInfo.lastRewardTime && curBlockTime > stakeInfo.rewardBeginTime) {
+            int endTime = min(curBlockTime, stakeInfo.rewardEndTime);
+            int startTime = max(stakeInfo.lastRewardTime, stakeInfo.rewardBeginTime);
+            int timeOffset = endTime - startTime;
+            accPoolPerShare += timeOffset * stakeInfo.rewardAmountPerSecond * stakeInfo.rewardAmountFactor / stakeInfo.poolTokenAmount;
+        }
+        return accPoolPerShare;
+    }
+
+    static function getLeafData(bytes leaf) : LeafData {
+        LeafData data = {0, b'', 0, 0, b'', 0, b'' };
+        data.version = Utils.fromLEUnsigned(leaf[: 4]);
+        require(data.version == LEAF_DATA_VERSION);
+        data.address = leaf[4 : 24];
+        data.tokenAmount = Utils.fromLEUnsigned(leaf[24 : 32]);
+        // rewardDebt could be negative
+        data.rewardDebt = unpack(leaf[32 : 48]);
+        data.delegatee = leaf[48 : 68];
+        data.delegatedVotes = Utils.fromLEUnsigned(leaf[68 : 76]);
+        if (len(leaf) > MIN_LEAF_NODE_LENGTH) {
+            data.unlockingTokens = leaf[MIN_LEAF_NODE_LENGTH: ];
+        }
+        return data;
+    }
+
+    static function addUnlockingToken(LeafData data, int amount, int expired) : bytes {
+
+        bytes res = genNewLeaf(data);
+        return res + Utils.toLEUnsigned(expired, 4) + Utils.toLEUnsigned(amount, 8);
+    }
+
+    static function withdrawExpiredTokens(LeafData data, int curBlockTime): WithdrawExpiredRes {
+        int sum = 0;
+        int n = len(data.unlockingTokens) / UNLOCKING_TOKEN_INFO_LEN;
+        int count = 0;
+        // unlockingTokens must be the ascending order of expired
+        loop(WITHDRAW_LIMIT) : i {
+            if(i < n) {
+                int pos = i * UNLOCKING_TOKEN_INFO_LEN;
+                if (Utils.fromLEUnsigned(data.unlockingTokens[pos: pos + 4]) <= curBlockTime) {
+                    sum += Utils.fromLEUnsigned(data.unlockingTokens[pos + 4: pos + 12]);
+                    count += 1;
+                }
+            }
+        }       
+        require(sum > 0);
+        bytes res = genNewLeaf(data);
+        bytes newData = res[: MIN_LEAF_NODE_LENGTH] + data.unlockingTokens[count * UNLOCKING_TOKEN_INFO_LEN:];
+        return {sum, newData};
+    }
+
+    static function genNewLeaf(LeafData data) : bytes {
+        return Utils.toLEUnsigned(data.version, 4) + data.address + Utils.toLEUnsigned(data.tokenAmount, 8) + num2bin(data.rewardDebt, 16) + data.delegatee + Utils.toLEUnsigned(data.delegatedVotes, 8) + data.unlockingTokens;
+    }
+
+    static function verifyBlockRabinMsg(bytes stakeScript,
+        bytes prevouts,
+        int inputIndex,
+        BlockRabinData blockRabinData,
+        int lastRewardTime
+    ) : int {
+
+        bytes blockHeightRabinPubKeyHashArrayHash = StakeProto.getBlockNumRabinPubKeyHashArrayHash(stakeScript);
+        RabinUtil.verifyRabinPubKey(blockHeightRabinPubKeyHashArrayHash, blockRabinData.pubKeyHashArray, blockRabinData.pubKeyVerifyArray, blockRabinData.pubKeyIndexArray);
+        // get blockNum from rabinMsg
+        bytes tokenOutputPoint = prevouts[inputIndex * TxUtil.OUTPOINT_LEN : (inputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        bytes userData = hash160(tokenOutputPoint);
+        int curBlockTime = BlockHeight.verifyTime(blockRabinData.pubKeyVerifyArray, blockRabinData.msg, blockRabinData.paddingArray, blockRabinData.sigArray, userData);
+        require(curBlockTime >= lastRewardTime);
+        return curBlockTime;
+    }
+
+    static function checkStakeInput(bytes stakeScript, bytes stakeContractID, bytes stakeScriptCodeHash) : StakeInfo {
+
+        int stakeScriptLen = len(stakeScript);
+        require(stakeContractID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+        require(stakeScriptCodeHash == StakeProto.getScriptCodeHash(stakeScript, stakeScriptLen));
+
+        StakeInfo info = StakeProto.getStakeInfo(stakeScript);
+        return info;
+    }
+
+    static function checkStakeInput2(bytes stakeScript, bytes stakeContractID, bytes stakeScriptCodeHash) : bytes {
+
+        int stakeScriptLen = len(stakeScript);
+        require(stakeContractID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+        require(stakeScriptCodeHash == StakeProto.getScriptCodeHash(stakeScript, stakeScriptLen));
+
+        bytes data = StakeProto.getStakeData(stakeScript);
+        return data;
+    }
+}

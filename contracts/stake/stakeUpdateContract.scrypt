@@ -1,0 +1,59 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+
+contract StakeUpdateContract {
+    bytes stakeContractID;
+
+    // max input num 2 * 36
+    static const int MAX_PREVOUTS_LEN = 72;
+
+    static const int stakeInputIndex = 1;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        bytes newConctractHashRoot,
+        // sig
+        PubKey ownerPubKey,
+        Sig ownerSig,
+        // stake
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // output
+        int stakeOutputSatoshis,
+        int changeSatoshis,
+        Ripemd160 changeAddress
+    ) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        // limit max input num
+        require(len(prevouts) <= MAX_PREVOUTS_LEN);
+
+        // verify stake inswapput
+        int stakeScriptLen = len(stakeScript);
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN : (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = { stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript) };
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+
+        require(this.stakeContractID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+
+        // check sig
+        bytes ownerAddress = StakeProto.getOwnerAddress(stakeScript);
+        require(ownerAddress == hash160(ownerPubKey));
+        require(checkSig(ownerSig, ownerPubKey));
+
+        // stake output
+        bytes newStakeScript = StakeProto.getNewScriptFromNewContractHashRoot(stakeScript, stakeScriptLen, newConctractHashRoot);
+        bytes stakeOutput = Utils.buildOutput(newStakeScript, stakeOutputSatoshis);
+
+        // mvc change output
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, changeAddress);
+
+        bytes outputs = stakeOutput + changeOutput;
+
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+
+        require(Tx.checkPreimageSigHashTypeOCS(txPreimage, ProtoHeader.SIG_HASH_ALL));
+    }
+}

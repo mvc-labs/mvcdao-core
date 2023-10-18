@@ -1,0 +1,94 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../uniqueProto.scrypt";
+import "../token/tokenProto.scrypt";
+import "stakeCommon.scrypt";
+import "../MerkleTree.scrypt";
+import "../blockHeight.scrypt";
+
+// opreturn: stakeTokenHolderHash + stakeCodeHash
+contract StakeFinishWithdraw {
+    bytes stakeID;
+    Ripemd160 adminAddress;
+
+    // max input num 3 * 36
+    static const int MAX_PREVOUTS_LEN = 108;
+
+    static const int stakeInputIndex = 1;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        PubKey senderPubKey,
+        Sig senderSig,
+        // stake tx proof
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // block height
+        BlockRabinData blockRabinData,
+        // merkle
+        bytes oldLeaf,
+        bytes merklePath,
+        // output
+        int changeSatoshis
+    ) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        require(len(prevouts) <= MAX_PREVOUTS_LEN);
+
+        // getDataPart
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        StakeContractData contractData = StakeProto.getOpContractData(lockingScript);
+
+        // verify stake input
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN: (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = {stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript)};
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+
+        int stakeScriptLen = len(stakeScript);
+        require(this.stakeID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+
+        StakeInfo stakeInfo = StakeCommon.checkStakeInput(stakeScript, this.stakeID, contractData.stakeContractCodeHash);
+
+        // verify blockNum rabin msg
+        int curBlockTime = StakeCommon.verifyBlockRabinMsg(stakeScript, prevouts, stakeInputIndex, blockRabinData, stakeInfo.lastRewardTime);
+
+        // verify sig
+        require(checkSig(senderSig, senderPubKey));
+        bytes senderAddress = hash160(senderPubKey);
+
+        LeafData data = StakeCommon.getLeafData(oldLeaf);
+        // admin could withdraw token to user address
+        if (data.address != senderAddress) {
+            require(senderAddress == this.adminAddress);
+            senderAddress = data.address;
+        }
+
+        // updatePool
+        int newAccPoolPerShare = StakeCommon.updatePool(stakeInfo, curBlockTime);
+
+        WithdrawExpiredRes withdrawRes = StakeCommon.withdrawExpiredTokens(data, curBlockTime);
+
+        // update user data
+        bytes newUserDataMerkleRoot = MerkleTree.updateLeaf(sha256(oldLeaf), sha256(withdrawRes.leafBytes), merklePath, stakeInfo.userDataMerkleRoot);
+
+
+        // stake output
+        int newUnlockingPoolTokenAmount = stakeInfo.unlockingPoolTokenAmount - withdrawRes.amount;
+        int stakeOutputSatoshis = Utils.fromLEUnsigned(stakeTxProof.satoshiBytes) - withdrawRes.amount;
+        require(stakeOutputSatoshis > stakeInfo.poolTokenAmount + newUnlockingPoolTokenAmount);
+
+        bytes newStakeScript = StakeProto.getNewStakeScript(stakeScript, curBlockTime, stakeInfo.poolTokenAmount, newUnlockingPoolTokenAmount, newAccPoolPerShare, newUserDataMerkleRoot);
+        bytes stakeOutput = Utils.buildOutput(newStakeScript, stakeOutputSatoshis);
+
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, Ripemd160(senderAddress));
+        require(changeSatoshis >= withdrawRes.amount);
+
+        bytes outputs = stakeOutput + changeOutput;
+
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

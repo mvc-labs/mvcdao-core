@@ -1,0 +1,36 @@
+import "txUtil.scrypt";
+import "protoheader.scrypt";
+
+library UniqueProto {
+
+    // <op_pushdata> + <type specific data> + <proto header> + <data_len(4 bytes)> + <version(1 bytes)>
+    // <proto header> = <proto_version(4 bytes)> + <proto_type(4 bytes)> + <'metacontract'(12 bytes)>
+    // <unique type specific data> = <unique custom data> + <custom data length(4 bytes)> + <genesisTxid(36 bytes)> 
+    static bytes PROTO_FLAG = ProtoHeader.PROTO_FLAG;
+    static int PROTO_TYPE = 2;
+    static int PROTO_VERSION = 1;
+
+    static const int CUSTOM_DATA_SIZE_LEN = 4;
+
+    static const int GENESIS_TXID_OFFSET = ProtoHeader.PROTO_HEADER_OFFSET + ProtoHeader.GENESIS_TXID_LEN;
+    static const int CUSTOM_DATA_SIZE_OFFSET = GENESIS_TXID_OFFSET + CUSTOM_DATA_SIZE_LEN;
+
+    static const int FIX_HEADER_LEN = CUSTOM_DATA_SIZE_OFFSET;
+
+    static function getUniqueID(bytes script, int slen) : bytes {
+        return hash160(script[slen - GENESIS_TXID_OFFSET : slen - GENESIS_TXID_OFFSET + ProtoHeader.GENESIS_TXID_LEN]);
+    }
+
+    static function getGenesisTxid(bytes script, int slen) : bytes {
+        return script[slen - GENESIS_TXID_OFFSET : slen - GENESIS_TXID_OFFSET + ProtoHeader.GENESIS_TXID_LEN];
+    }
+
+    static function getCustomDataLen(bytes script, int slen) : int {
+        return Utils.fromLEUnsigned(script[slen - UniqueProto.CUSTOM_DATA_SIZE_OFFSET : slen - UniqueProto.CUSTOM_DATA_SIZE_OFFSET + UniqueProto.CUSTOM_DATA_SIZE_LEN]);
+    }
+
+    static function getCustomData(bytes script, int slen) : bytes {
+        int customDataLen = UniqueProto.getCustomDataLen(script, slen);
+        return script[slen - UniqueProto.CUSTOM_DATA_SIZE_OFFSET - customDataLen : slen - UniqueProto.CUSTOM_DATA_SIZE_OFFSET];
+    }
+}

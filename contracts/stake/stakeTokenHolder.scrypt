@@ -1,0 +1,54 @@
+import "stakeProto.scrypt";
+import "../uniqueCommon.scrypt";
+import "stakeCommon.scrypt";
+import "../common.scrypt";
+
+// opreturn + stakeContractCodeHash
+contract StakeTokenHolder {
+    bytes stakeID;
+
+    static const int stakeInputIndex = 1;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        // stake
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // op contract
+        bytes opTxScript,
+        TxOutputProof opTxProof,
+        bytes contractHashProof,
+        int op) {
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+        bytes stakeScriptCodeHash = lockingScript[scriptLen - 25 : scriptLen - 5];
+
+        // verify stake input
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN : (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = {stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript)};
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+        bytes stakeData = StakeCommon.checkStakeInput2(stakeScript, this.stakeID, stakeScriptCodeHash);
+
+        // verify opTxProof
+        bytes opOutpoint = prevouts[: TxUtil.OUTPOINT_LEN];
+        TxOutputProof opProof = {opTxProof.txHeader, opTxProof.hashProof, opTxProof.satoshiBytes, sha256(opTxScript)};
+        TxUtil.verifyTxOutput(opProof, opOutpoint);
+
+        // verify contract input
+        require(op == StakeProto.OP_DEPOSIT || op == StakeProto.OP_FINISH_WITHDRAW || op == StakeProto.OP_WITHDRAW);
+        int stakeScriptLen = len(stakeScript);
+        bytes contractHashRoot = StakeProto.getContractHashRoot(stakeScript, stakeScriptLen);
+        require(contractHashRoot == hash160(contractHashProof));
+        bytes contractHash = Common.getScriptCodeHash(opTxScript);
+        require(contractHash == contractHashProof[op * 20 : (op + 1) * 20]);
+
+        // verify contractHash data
+        require(stakeData == StakeProto.getStakeData(stakeScript));
+
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

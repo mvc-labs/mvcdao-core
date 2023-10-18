@@ -1,0 +1,30 @@
+import "txUtil.scrypt";
+
+library Backtrace {
+    /**
+     * @function Verify the backtrace of a tx
+     * @param outpoint the outpoint of the tx to be verified
+     * @param txHeader the header of the tx to be verified
+     * @param prevTxInputIndex the input index of the prevTx in tx 
+     * @param prevTxProof the output proof of the prev tx
+     * @param genesisTxid the genesis outpoint
+     * @param inputProof the input proof of the prevTx in tx
+     * @return true if the backtrace is valid
+     */
+    static function verify(bytes outpoint, bytes txHeader, int prevTxInputIndex, TxOutputProof prevTxProof, bytes genesisTxid, TxInputProof inputProof): bool {
+
+        // verify tx id
+        require(outpoint[:32] == hash256(txHeader));
+
+        // verify the specified output of prevTx is an input of tx
+        TxUtil.verifyTxInput(txHeader, prevTxInputIndex, inputProof);
+
+        bytes prevOutpoint = inputProof.txHash + inputProof.outputIndexBytes;
+        if (prevOutpoint != genesisTxid) {
+            // check if prevTx's script code is same with scriptCodeHash
+            TxUtil.verifyTxOutput(prevTxProof, prevOutpoint);
+        }
+
+        return true;
+    }
+}

@@ -1,0 +1,108 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../uniqueProto.scrypt";
+import "../token/tokenProto.scrypt";
+import "../MerkleTree.scrypt";
+import "../blockHeight.scrypt";
+import "stakeCommon.scrypt";
+
+// opreturn: stakeTokenHolderHash + stakeCodeHash
+contract StakeWithdraw {
+    bytes stakeID;
+    Ripemd160 adminAddress;
+
+    // max input num 3 * 36
+    static const int MAX_PREVOUTS_LEN = 108;
+
+    static const int stakeInputIndex = 1;
+
+    public function unlock(SigHashPreimage txPreimage,
+        bytes prevouts,
+        // sig
+        PubKey senderPubKey,
+        Sig senderSig,
+        int mvcRemoveAmount,
+        // stake tx proof
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // block height
+        BlockRabinData blockRabinData,
+        // merkle
+        bytes oldLeaf,
+        bytes merklePath,
+        // output
+        int changeSatoshis,
+        bytes opReturnScript
+    ) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        require(len(prevouts) <= MAX_PREVOUTS_LEN);
+
+        // getDataPart
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        StakeContractData contractData = StakeProto.getOpContractData(lockingScript);
+
+        // verify stake input
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN : (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = { stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript) };
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+
+        int stakeScriptLen = len(stakeScript);
+        require(this.stakeID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+
+        StakeInfo stakeInfo = StakeCommon.checkStakeInput(stakeScript, this.stakeID, contractData.stakeContractCodeHash);
+
+        // can withdraw when withdrawLockInterval == 0
+        require(stakeInfo.withdrawLockInterval == 0);
+
+        // get blockNum from rabinMsg
+        int curBlockTime = StakeCommon.verifyBlockRabinMsg(stakeScript, prevouts, stakeInputIndex, blockRabinData, stakeInfo.lastRewardTime);
+
+        // verify sig
+        require(checkSig(senderSig, senderPubKey));
+        bytes senderAddress = hash160(senderPubKey);
+
+        LeafData data = StakeCommon.getLeafData(oldLeaf);
+        // admin could withdraw token to user address
+        if (data.address != senderAddress) {
+            require(senderAddress == this.adminAddress);
+            senderAddress = data.address;
+        }
+        //require(data.address == senderAddress);
+        require(data.tokenAmount >= mvcRemoveAmount);
+
+        // updatePool
+        int newAccPoolPerShare = StakeCommon.updatePool(stakeInfo, curBlockTime);
+        int newPoolTokenAmount = stakeInfo.poolTokenAmount - mvcRemoveAmount;
+        data.tokenAmount -= mvcRemoveAmount;
+        data.rewardDebt -= mvcRemoveAmount * newAccPoolPerShare / stakeInfo.rewardAmountFactor;
+
+        bytes newLeaf = StakeCommon.genNewLeaf(data);
+
+        // update user data
+        bytes newUserDataMerkleRoot = MerkleTree.updateLeaf(sha256(oldLeaf), sha256(newLeaf), merklePath, stakeInfo.userDataMerkleRoot);
+
+        int stakeOutputSatoshis = Utils.fromLEUnsigned(stakeTxProof.satoshiBytes) - mvcRemoveAmount;
+        require(stakeOutputSatoshis > newPoolTokenAmount);
+
+        // stake output
+        bytes newStakeScript = StakeProto.getNewStakeScript(stakeScript, curBlockTime, newPoolTokenAmount, 0, newAccPoolPerShare, newUserDataMerkleRoot);
+        bytes stakeOutput = Utils.buildOutput(newStakeScript, stakeOutputSatoshis);
+
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, Ripemd160(senderAddress));
+        require(changeSatoshis >= mvcRemoveAmount);
+
+        // op_false op_return output
+        bytes opReturnOutput = b'';
+        if (len(opReturnScript) > 0) {
+            require(opReturnScript[0 : 2] == b'006a');
+            opReturnOutput = Utils.buildOutput(opReturnScript, 0);
+        }
+
+        bytes outputs = stakeOutput + opReturnOutput + changeOutput;
+
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

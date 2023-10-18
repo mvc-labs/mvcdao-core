@@ -1,0 +1,58 @@
+import "../txUtil.scrypt";
+import "voteProto.scrypt";
+import "../uniqueProto.scrypt";
+import "../uniqueCommon.scrypt";
+import "../backtrace.scrypt";
+
+contract VoteMain {
+
+    //static const int opContractInputIndex = 0;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        // op contract hash proof
+        TxOutputProof opContractTxProof,
+        bytes opContractTxScript,
+        // main contract hash proof
+        bytes mainContractHashProof,
+        int mainContractHashIndex,
+        // tx proof
+        int prevTxInputIndex,
+        bytes txHeader,
+        TxInputProof txInputProof,
+        TxOutputProof prevTxOutputProof,
+        bytes prevCustomData
+    ) {
+        // verify this tx's version
+        require(Utils.fromLEUnsigned(SigHash.nVersion(txPreimage)) == ProtoHeader.TX_VERSION);
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+
+        bytes mainScript = SigHash.scriptCode(txPreimage);
+        int mainScriptLen = len(mainScript);
+        
+        // verify txOutputProof
+        bytes thisOutpoint = SigHash.outpoint(txPreimage);
+
+        // unlock from contract
+        bytes mainContractHashRoot = VoteProto.getContractHashRoot(mainScript);
+        UniqueCommon.verifyContractHashProof(prevouts, opContractTxProof, opContractTxScript, mainContractHashRoot, mainContractHashProof, mainContractHashIndex);
+
+        // verify contractHash data
+        int opContractScriptLen = len(opContractTxScript);
+        bytes mainScriptCodeHash = opContractTxScript[opContractScriptLen - 85 : opContractScriptLen - 65];
+        require(mainScriptCodeHash == VoteProto.getScriptCodeHash(mainScript, mainScriptLen));
+
+        // backtrace
+        bytes genesisTxid = UniqueProto.getGenesisTxid(mainScript, mainScriptLen);
+        if (genesisTxid[:32] != hash256(prevTxOutputProof.txHeader)) {
+            bytes prevMainScript = VoteProto.getNewScriptWithCustomData(mainScript, mainScriptLen, prevCustomData);
+            require(sha256(prevMainScript) == prevTxOutputProof.scriptHash);
+        }
+        Backtrace.verify(thisOutpoint, txHeader, prevTxInputIndex, prevTxOutputProof, genesisTxid, txInputProof);
+
+        require(Tx.checkPreimageSigHashType(txPreimage, ProtoHeader.SIG_HASH_ALL));
+    }
+}

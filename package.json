@@ -1,0 +1,36 @@
+{
+  "name": "mvcdao-core",
+  "version": "0.1.0",
+  "description": "mvc dao contract",
+  "main": "",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "test": "mocha -r ts-node/register tests/**/*scrypttest.*  --reporter spec --timeout 600000",
+    "single-test": "mocha -r ts-node/register --reporter spec --timeout 1200000",
+    "single-one": "mocha -r ts-node/register --reporter spec --timeout 1200000 -g",
+    "testnet": "node tests/testnet/demo.js",
+    "watch": "node watcher.js",
+    "gen-desc": "node watcher.js --gen-desc"
+  },
+  "author": "ccoincash",
+  "dependencies": {
+    "axios": "^0.26.0",
+    "elliptic": ">=6.5.4",
+    "glob": "^7.1.6",
+    "minimist": "^1.2.5",
+    "mvc-scrypt": "^0.1.0",
+    "watch": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.8",
+    "@types/mocha": "^7.0.1",
+    "@types/node": "^13.7.6",
+    "chai": "^4.2.0",
+    "mocha": "^8.4.0",
+    "ts-node": "^8.6.2",
+    "tsconfig-paths": "^3.9.0",
+    "typescript": "^3.7.5"
+  }
+}

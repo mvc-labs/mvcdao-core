@@ -1,0 +1,120 @@
+import "../txUtil.scrypt";
+import "stakeProto.scrypt";
+import "../uniqueProto.scrypt";
+import "../token/tokenProto.scrypt";
+import "stakeCommon.scrypt";
+import "../MerkleTree.scrypt";
+import "../blockHeight.scrypt";
+
+// opreturn: stakeTokenHolderHash + stakeRewardTokenHolderHash + stakeCodeHash
+contract StakeHarvest {
+    bytes stakeID;
+    bytes rewardTokenID;
+    bytes rewardTokenScriptCodeHash;
+
+    // max input num 6 * 36
+    static const int MAX_PREVOUTS_LEN = 216;
+
+    static const int stakeInputIndex = 1;
+    static const int rewardTokenInputIndex = 2;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        // sig
+        PubKey senderPubKey,
+        Sig senderSig,
+        // stake tx proof
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // reward token
+        bytes tokenScript,
+        TxOutputProof tokenTxProof,
+        // block height
+        BlockRabinData blockRabinData,
+        // merkle
+        bytes oldLeaf,
+        bytes merklePath,
+        // output
+        int rewardTokenOutputSatoshis,
+        Ripemd160 changeAddress,
+        int changeSatoshis
+    ) {
+
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        require(len(prevouts) <= MAX_PREVOUTS_LEN);
+
+        // getDataPart
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        StakeContractData contractData = StakeProto.getOpContractData(lockingScript);
+
+        // verify stake input
+        bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN: (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof stakeProof = {stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript)};
+        TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+
+        int stakeScriptLen = len(stakeScript);
+        require(this.stakeID == UniqueProto.getUniqueID(stakeScript, stakeScriptLen));
+
+        StakeInfo stakeInfo = StakeCommon.checkStakeInput(stakeScript, this.stakeID, contractData.stakeContractCodeHash);
+
+        int tokenScriptLen = len(tokenScript);
+        // verify token input
+        bytes tokenOutpoint = prevouts[rewardTokenInputIndex * TxUtil.OUTPOINT_LEN: (rewardTokenInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+        TxOutputProof tokenProof = {tokenTxProof.txHeader, tokenTxProof.hashProof, tokenTxProof.satoshiBytes, sha256(tokenScript)};
+        TxUtil.verifyTxOutput(tokenProof, tokenOutpoint);
+        int rewardTokenInputAmount = TokenProto.getTokenAmount(tokenScript, tokenScriptLen);
+        require(this.rewardTokenID == TokenProto.getTokenID(tokenScript, tokenScriptLen));
+        require(this.rewardTokenScriptCodeHash == TokenProto.getScriptCodeHash(tokenScript, tokenScriptLen));
+
+        // verify blockNum rabin msg
+        int curBlockTime = StakeCommon.verifyBlockRabinMsg(stakeScript, prevouts, stakeInputIndex, blockRabinData, stakeInfo.lastRewardTime);
+
+        // verify sig
+        require(checkSig(senderSig, senderPubKey));
+        bytes senderAddress = hash160(senderPubKey);
+
+        LeafData data = StakeCommon.getLeafData(oldLeaf);
+        require(data.address == senderAddress);
+
+        // updatePool
+        int newAccPoolPerShare = StakeCommon.updatePool(stakeInfo, curBlockTime);
+
+        int accReward = data.tokenAmount * newAccPoolPerShare / stakeInfo.rewardAmountFactor;
+        int pendingReward = accReward - data.rewardDebt;
+        require(pendingReward > 0);
+        int remainRewardTokenAmount = rewardTokenInputAmount - pendingReward;
+        require(rewardTokenInputAmount >= pendingReward);
+        data.rewardDebt = accReward;
+
+        bytes newLeaf = StakeCommon.genNewLeaf(data);
+
+        // update user data
+        bytes newUserDataMerkleRoot = MerkleTree.updateLeaf(sha256(oldLeaf), sha256(newLeaf), merklePath, stakeInfo.userDataMerkleRoot);
+
+        // stake output
+        bytes newStakeScript = StakeProto.getNewStakeScript(stakeScript, curBlockTime, stakeInfo.poolTokenAmount, stakeInfo.unlockingPoolTokenAmount, newAccPoolPerShare, newUserDataMerkleRoot);
+        int stakeOutputSatoshis = Utils.fromLEUnsigned(stakeTxProof.satoshiBytes);
+        bytes stakeOutput = Utils.buildOutput(newStakeScript, stakeOutputSatoshis);
+
+        // user reward token output
+        bytes userRewardTokenScript = TokenProto.getNewTokenScript(tokenScript, tokenScriptLen, senderAddress, pendingReward);
+        bytes userRewardTokenOutput = Utils.buildOutput(userRewardTokenScript, rewardTokenOutputSatoshis);
+
+        // reward token output
+        bytes rewardTokenOutput = b'';
+        if (remainRewardTokenAmount > 0) {
+            bytes newRewardScript = TokenProto.getNewTokenScript(tokenScript, tokenScriptLen, contractData.stakeRewardTokenHolderHash, remainRewardTokenAmount);
+            rewardTokenOutput = Utils.buildOutput(newRewardScript, rewardTokenOutputSatoshis);
+        }
+
+        bytes changeOutput = TxUtil.genMvcOutput(changeSatoshis, changeAddress);
+
+        bytes outputs = stakeOutput + userRewardTokenOutput + rewardTokenOutput + changeOutput;
+
+        require(hash256(outputs) == SigHash.hashOutputs(txPreimage));
+
+        require(Tx.checkPreimageOCS(txPreimage));
+    }
+}

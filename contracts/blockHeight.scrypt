@@ -1,0 +1,72 @@
+import "rabinUtil.scrypt";
+
+struct BlockRabinData {
+    bytes msg;
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] paddingArray;
+    int[RabinUtil.ORACLE_VERIFY_NUM] sigArray;
+    int[RabinUtil.ORACLE_VERIFY_NUM] pubKeyIndexArray;
+    int[RabinUtil.ORACLE_VERIFY_NUM] pubKeyVerifyArray;
+    bytes pubKeyHashArray;
+}
+
+// block height msg format:
+// 4 bytes height little endian represents an integer
+// 4 bytes timestamp little endian represents an integer
+// 4 bytes mtp little endian represents an integer
+// 3 bytes "MVC".utf-8
+// 20 bytes userData
+
+library BlockHeight {
+
+  static bytes SYMBOL = b'4d5643'; // "MVC"
+
+  static function verifyMsg(
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray, 
+    bytes rabinMsg,
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray, 
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinSigArray,
+    bytes userData 
+  ): int {
+    require(rabinMsg[44: 47] == SYMBOL);
+    require(rabinMsg[47: ] == userData);
+
+    int verifyCount = 0;
+    loop(RabinUtil.ORACLE_VERIFY_NUM): i {
+      int rabinPubKey = rabinPubKeyVerifyArray[i];
+      int rabinSig = rabinSigArray[i];
+      bytes padding = rabinPaddingArray[i];
+      int h = RabinUtil.rabinHash(rabinMsg + padding);
+      if ((rabinSig * rabinSig) % rabinPubKey == h % rabinPubKey) {
+        verifyCount += 1;
+      }
+    }
+    require(verifyCount == RabinUtil.ORACLE_VERIFY_NUM);
+    return 0;
+  }
+
+  static function verifyHeight(
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray, 
+    bytes rabinMsg,
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray, 
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinSigArray,
+    bytes userData 
+  ): int {
+    verifyMsg(rabinPubKeyVerifyArray, rabinMsg, rabinPaddingArray, rabinSigArray, userData);
+
+    int blockHeight = Utils.fromLEUnsigned(rabinMsg[:4]);
+    return blockHeight;
+  }
+
+  static function verifyTime(
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray, 
+    bytes rabinMsg,
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray, 
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinSigArray,
+    bytes userData 
+  ): int {
+    verifyMsg(rabinPubKeyVerifyArray, rabinMsg, rabinPaddingArray, rabinSigArray, userData);
+
+    int blockTime = Utils.fromLEUnsigned(rabinMsg[4:8]);
+    return blockTime;
+  }
+}

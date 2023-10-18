@@ -1,0 +1,90 @@
+import "stakeProto.scrypt";
+import "../uniqueCommon.scrypt";
+import "../common.scrypt";
+import "stakeCommon.scrypt";
+
+// opreturn: stakeContractCodeHash
+contract StakeRewardTokenHolder {
+    bytes stakeID;
+    bytes mergeContractCodeHash;
+    Ripemd160 adminAddress;
+
+    //static const int contractInputIndex = 0;
+
+    static const int stakeInputIndex = 1;
+
+    static const int OP_UNLOCK_FROM_CONTRACT = 1;
+    static const int OP_UNLOCK_FROM_ADMIN = 2;
+
+    // admin support 3 inputs
+    // stakeRewardTokenHolder + rewardToken + amountCheck
+    static const int ADMIN_PREVOUTS_LEN = 108;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        // sig
+        PubKey adminPubKey,
+        Sig adminSig,
+        // stake
+        bytes stakeScript,
+        TxOutputProof stakeTxProof,
+        // op contract
+        bytes opTxScript,
+        TxOutputProof opTxProof,
+        bytes contractHashProof,
+        int op) {
+        // check prevouts
+        require(hash256(prevouts) == SigHash.hashPrevouts(txPreimage));
+        bytes lockingScript = SigHash.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+        bytes stakeScriptCodeHash = lockingScript[scriptLen - 25 : scriptLen - 5];
+
+        if (op == OP_UNLOCK_FROM_CONTRACT) {
+
+            // verify opTxProof
+            bytes opOutpoint = prevouts[: TxUtil.OUTPOINT_LEN];
+            TxOutputProof opProof = {opTxProof.txHeader, opTxProof.hashProof, opTxProof.satoshiBytes, sha256(opTxScript)};
+            TxUtil.verifyTxOutput(opProof, opOutpoint);
+            int opTxScriptLen = len(opTxScript);
+
+            require(stakeScriptCodeHash == opTxScript[opTxScriptLen - 25 : opTxScriptLen - 5]);
+
+            // check the stakeRewardTokenHolderHash
+            bytes stakeRewardTokenHolderHash = opTxScript[opTxScriptLen - 45 : opTxScriptLen - 25];
+            require(stakeRewardTokenHolderHash == hash160(lockingScript));
+
+            // scriptDataLen include all after op_return
+            bytes contractHash = Common.getScriptCodeHash(opTxScript);
+
+            if (contractHash != this.mergeContractCodeHash) {
+                // verify stakeTxProof
+                bytes stakeOutpoint = prevouts[stakeInputIndex * TxUtil.OUTPOINT_LEN : (stakeInputIndex + 1) * TxUtil.OUTPOINT_LEN];
+                
+                TxOutputProof stakeProof = {stakeTxProof.txHeader, stakeTxProof.hashProof, stakeTxProof.satoshiBytes, sha256(stakeScript)};
+                TxUtil.verifyTxOutput(stakeProof, stakeOutpoint);
+
+                // verify stakeID and stakeScriptCodeHash
+                int stakeScriptLen = len(stakeScript);
+                bytes stakeData = StakeCommon.checkStakeInput2(stakeScript, this.stakeID, stakeScriptCodeHash);
+
+                // verify stake main contract op
+                bytes contractHashRoot = StakeProto.getContractHashRoot(stakeScript, stakeScriptLen);
+                require(contractHash == contractHashProof[StakeProto.OP_HARVEST * 20 : (StakeProto.OP_HARVEST + 1) * 20]);
+                require(contractHashRoot == hash160(contractHashProof));
+
+                require(stakeData == StakeProto.getStakeData(stakeScript));
+            }
+        }
+        else if (op == OP_UNLOCK_FROM_ADMIN) {
+            require(len(prevouts) == ADMIN_PREVOUTS_LEN);
+            require(hash160(adminPubKey) == this.adminAddress);
+            require(checkSig(adminSig, adminPubKey));
+        }
+        else {
+            require(false);
+        }
+
+        require(Tx.checkPreimage(txPreimage));
+    }
+}
