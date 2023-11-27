@@ -51,7 +51,7 @@ contract StakeMain {
 
         // backtrace
         bytes genesisTxid = UniqueProto.getGenesisTxid(mainScript, mainScriptLen);
-        if (genesisTxid[:32] != hash256(prevTxOutputProof.txHeader)) {
+        if (genesisTxid != hash256(prevTxOutputProof.txHeader + txInputProof.outputIndexBytes)) { 
             bytes prevMainScript = StakeProto.getNewScriptWithCustomData(mainScript, mainScriptLen, prevCustomData);
             require(sha256(prevMainScript) == prevTxOutputProof.scriptHash);
         }
