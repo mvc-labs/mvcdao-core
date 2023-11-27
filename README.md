@@ -11,10 +11,6 @@ npm i
 ```
 
 ## Test
-
-* 1 Compile all contracts in `contracts/stake` and `contracts/token` into a new directory `out/`
-
-* 2 Run command
 ```
 npm run test
 ```

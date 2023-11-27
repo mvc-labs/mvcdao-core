@@ -1,0 +1,269 @@
+{
+    "version": 9,
+    "compilerVersion": "1.19.0+commit.72eaeba",
+    "contract": "StakeUpdateContract",
+    "md5": "0ee89f7889eea2ab57d73fce4cd978c9",
+    "structs": [
+        {
+            "name": "SortedItem",
+            "params": [
+                {
+                    "name": "item",
+                    "type": "T"
+                },
+                {
+                    "name": "idx",
+                    "type": "int"
+                }
+            ],
+            "genericTypes": [
+                "T"
+            ]
+        },
+        {
+            "name": "LockingScriptParts",
+            "params": [
+                {
+                    "name": "code",
+                    "type": "bytes"
+                },
+                {
+                    "name": "data",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "OpPushData",
+            "params": [
+                {
+                    "name": "len",
+                    "type": "int"
+                },
+                {
+                    "name": "value",
+                    "type": "int"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "VarIntData",
+            "params": [
+                {
+                    "name": "len",
+                    "type": "int"
+                },
+                {
+                    "name": "value",
+                    "type": "int"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "TxInputProof",
+            "params": [
+                {
+                    "name": "hashProof",
+                    "type": "bytes"
+                },
+                {
+                    "name": "txHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "outputIndexBytes",
+                    "type": "bytes"
+                },
+                {
+                    "name": "sequenceBytes",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "TxOutputProof",
+            "params": [
+                {
+                    "name": "txHeader",
+                    "type": "bytes"
+                },
+                {
+                    "name": "hashProof",
+                    "type": "bytes"
+                },
+                {
+                    "name": "satoshiBytes",
+                    "type": "bytes"
+                },
+                {
+                    "name": "scriptHash",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "StakeInfo",
+            "params": [
+                {
+                    "name": "rewardAmountFactor",
+                    "type": "int"
+                },
+                {
+                    "name": "rewardBeginTime",
+                    "type": "int"
+                },
+                {
+                    "name": "rewardEndTime",
+                    "type": "int"
+                },
+                {
+                    "name": "withdrawLockInterval",
+                    "type": "int"
+                },
+                {
+                    "name": "rewardAmountPerSecond",
+                    "type": "int"
+                },
+                {
+                    "name": "lastRewardTime",
+                    "type": "int"
+                },
+                {
+                    "name": "poolTokenAmount",
+                    "type": "int"
+                },
+                {
+                    "name": "unlockingPoolTokenAmount",
+                    "type": "int"
+                },
+                {
+                    "name": "accPoolPerShare",
+                    "type": "int"
+                },
+                {
+                    "name": "userDataMerkleRoot",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "StakeContractData",
+            "params": [
+                {
+                    "name": "stakeContractCodeHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "stakeRewardTokenHolderHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "stakeTokenHolderHash",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        }
+    ],
+    "library": [
+        {
+            "name": "TxUtil",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "ProtoHeader",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "StakeProto",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "UniqueProto",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        }
+    ],
+    "alias": [
+        {
+            "name": "PubKeyHash",
+            "type": "Ripemd160"
+        }
+    ],
+    "abi": [
+        {
+            "type": "function",
+            "name": "unlock",
+            "index": 0,
+            "params": [
+                {
+                    "name": "txPreimage",
+                    "type": "SigHashPreimage"
+                },
+                {
+                    "name": "prevouts",
+                    "type": "bytes"
+                },
+                {
+                    "name": "newConctractHashRoot",
+                    "type": "bytes"
+                },
+                {
+                    "name": "ownerPubKey",
+                    "type": "PubKey"
+                },
+                {
+                    "name": "ownerSig",
+                    "type": "Sig"
+                },
+                {
+                    "name": "stakeScript",
+                    "type": "bytes"
+                },
+                {
+                    "name": "stakeTxProof",
+                    "type": "TxOutputProof"
+                },
+                {
+                    "name": "stakeOutputSatoshis",
+                    "type": "int"
+                },
+                {
+                    "name": "changeSatoshis",
+                    "type": "int"
+                },
+                {
+                    "name": "changeAddress",
+                    "type": "Ripemd160"
+                }
+            ]
+        },
+        {
+            "type": "constructor",
+            "params": [
+                {
+                    "name": "stakeContractID",
+                    "type": "bytes"
+                }
+            ]
+        }
+    ],
+    "stateProps": [],
+    "buildType": "debug",
+    "file": "file:///d:/workspace/mvcdao-core/contracts/stake/stakeUpdateContract.scrypt",
+    "hex": "0176018801a901ac515301402097dfd76851bf465e8f715593b217714858bbe9570ff3bd5e33840a34e20ff0262102ba79df5f8ae7604a9830f03c7933028186aede0675a16f025dc4f8be8eec0382201008ce7480da41702918d1ec8e6849ba32b4d65b1e40dc669c31a1e6306b266c0c6d657461636f6e74726163745679557985011455937601249376549376760114937601149376011493760114937601209376609376589376589376549376589376549376549376549376589376011493<stakeContractID>012b79aa012d797601247f75547f777788012b7982770148a1690127798277012c79520124957f75510124957f77012879012879012879012c79a8707058795479aa7801207f75887601207f777601007e81775579607f755c7f777601007e8177567901707f7501507f775679827752790128959d5679a878885479827701209d557955797e76587955798b0128957f7555790128957f77886d6d6d6d755679012e7957796e011d79940124937f7578011d79947f77a9777788012d797682776e5b79940114937f75785b79947f77777776013179a988012f79013179ad012e7957790133796f75011b79947f75787e70011c79940114937f777e77777776012b797658805279768277007802fd009f6378516e8b80767682778c7f75007f77777777776778030000019f6301fd5279526e8b80767682778c7f75007f777777777e7767780500000000019f6301fe5279546e8b80767682778c7f75007f777777777e776778090000000000000000019f6301ff5279586e8b80767682778c7f75007f777777777e77686868687653797e7777777e7777012a79012a7900527900a06378012c79012b797e01147e787e012c797e012a797e777654797658805279768277007802fd009f6378516e8b80767682778c7f75007f77777777776778030000019f6301fd5279526e8b80767682778c7f75007f777777777e7767780500000000019f6301fe5279546e8b80767682778c7f75007f777777777e776778090000000000000000019f6301ff5279586e8b80767682778c7f75007f777777777e77686868687653797e7777777e777777776877776e7e76aa0138797682776e58947f75780128947f7777778801377901207978012679012679210ac407f0e4bd44bfc207355a778b046225a7068fc59ee7eda43ad905aadbffc800206c266b30e6a1319c66dc401e5bd6b432ba49688eecd118297041da8074ce081001287956795679aa7676517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e01007e817757795679567956795679537956795479577995939521414136d08c5ed2bf3ba048afe6dcaebafeffffffffffffffffffffffffffffff006e6e9776009f636e936776687777777b757c6e5296a0636e7c947b757c6853798277527982775379012080517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e01205279947f77545379935279930130787e527e54797e58797e527e53797e52797e57797e777777777777777777777777ab765779ac77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777",
+    "sourceMapFile": ""
+}

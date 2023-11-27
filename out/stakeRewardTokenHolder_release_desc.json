@@ -1,0 +1,391 @@
+{
+    "version": 9,
+    "compilerVersion": "1.19.0+commit.72eaeba",
+    "contract": "StakeRewardTokenHolder",
+    "md5": "319b84320dd7fcae731241cc6fe20e45",
+    "structs": [
+        {
+            "name": "SortedItem",
+            "params": [
+                {
+                    "name": "item",
+                    "type": "T"
+                },
+                {
+                    "name": "idx",
+                    "type": "int"
+                }
+            ],
+            "genericTypes": [
+                "T"
+            ]
+        },
+        {
+            "name": "LockingScriptParts",
+            "params": [
+                {
+                    "name": "code",
+                    "type": "bytes"
+                },
+                {
+                    "name": "data",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "OpPushData",
+            "params": [
+                {
+                    "name": "len",
+                    "type": "int"
+                },
+                {
+                    "name": "value",
+                    "type": "int"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "VarIntData",
+            "params": [
+                {
+                    "name": "len",
+                    "type": "int"
+                },
+                {
+                    "name": "value",
+                    "type": "int"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "TxInputProof",
+            "params": [
+                {
+                    "name": "hashProof",
+                    "type": "bytes"
+                },
+                {
+                    "name": "txHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "outputIndexBytes",
+                    "type": "bytes"
+                },
+                {
+                    "name": "sequenceBytes",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "TxOutputProof",
+            "params": [
+                {
+                    "name": "txHeader",
+                    "type": "bytes"
+                },
+                {
+                    "name": "hashProof",
+                    "type": "bytes"
+                },
+                {
+                    "name": "satoshiBytes",
+                    "type": "bytes"
+                },
+                {
+                    "name": "scriptHash",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "LeafData",
+            "params": [
+                {
+                    "name": "version",
+                    "type": "int"
+                },
+                {
+                    "name": "address",
+                    "type": "bytes"
+                },
+                {
+                    "name": "tokenAmount",
+                    "type": "int"
+                },
+                {
+                    "name": "rewardDebt",
+                    "type": "int"
+                },
+                {
+                    "name": "delegatee",
+                    "type": "bytes"
+                },
+                {
+                    "name": "delegatedVotes",
+                    "type": "int"
+                },
+                {
+                    "name": "unlockingTokens",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "WithdrawExpiredRes",
+            "params": [
+                {
+                    "name": "amount",
+                    "type": "int"
+                },
+                {
+                    "name": "leafBytes",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "StakeInfo",
+            "params": [
+                {
+                    "name": "rewardAmountFactor",
+                    "type": "int"
+                },
+                {
+                    "name": "rewardBeginTime",
+                    "type": "int"
+                },
+                {
+                    "name": "rewardEndTime",
+                    "type": "int"
+                },
+                {
+                    "name": "withdrawLockInterval",
+                    "type": "int"
+                },
+                {
+                    "name": "rewardAmountPerSecond",
+                    "type": "int"
+                },
+                {
+                    "name": "lastRewardTime",
+                    "type": "int"
+                },
+                {
+                    "name": "poolTokenAmount",
+                    "type": "int"
+                },
+                {
+                    "name": "unlockingPoolTokenAmount",
+                    "type": "int"
+                },
+                {
+                    "name": "accPoolPerShare",
+                    "type": "int"
+                },
+                {
+                    "name": "userDataMerkleRoot",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "StakeContractData",
+            "params": [
+                {
+                    "name": "stakeContractCodeHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "stakeRewardTokenHolderHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "stakeTokenHolderHash",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        },
+        {
+            "name": "BlockRabinData",
+            "params": [
+                {
+                    "name": "msg",
+                    "type": "bytes"
+                },
+                {
+                    "name": "paddingArray",
+                    "type": "bytes[3]"
+                },
+                {
+                    "name": "sigArray",
+                    "type": "int[3]"
+                },
+                {
+                    "name": "pubKeyIndexArray",
+                    "type": "int[3]"
+                },
+                {
+                    "name": "pubKeyVerifyArray",
+                    "type": "int[3]"
+                },
+                {
+                    "name": "pubKeyHashArray",
+                    "type": "bytes"
+                }
+            ],
+            "genericTypes": []
+        }
+    ],
+    "library": [
+        {
+            "name": "RabinUtil",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "TxUtil",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "UniqueCommon",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "ProtoHeader",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "StakeCommon",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "StakeProto",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "TokenProto",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "UniqueProto",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "Common",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        },
+        {
+            "name": "BlockHeight",
+            "params": [],
+            "properties": [],
+            "genericTypes": []
+        }
+    ],
+    "alias": [
+        {
+            "name": "PubKeyHash",
+            "type": "Ripemd160"
+        }
+    ],
+    "abi": [
+        {
+            "type": "function",
+            "name": "unlock",
+            "index": 0,
+            "params": [
+                {
+                    "name": "txPreimage",
+                    "type": "SigHashPreimage"
+                },
+                {
+                    "name": "prevouts",
+                    "type": "bytes"
+                },
+                {
+                    "name": "adminPubKey",
+                    "type": "PubKey"
+                },
+                {
+                    "name": "adminSig",
+                    "type": "Sig"
+                },
+                {
+                    "name": "stakeScript",
+                    "type": "bytes"
+                },
+                {
+                    "name": "stakeTxProof",
+                    "type": "TxOutputProof"
+                },
+                {
+                    "name": "opTxScript",
+                    "type": "bytes"
+                },
+                {
+                    "name": "opTxProof",
+                    "type": "TxOutputProof"
+                },
+                {
+                    "name": "contractHashProof",
+                    "type": "bytes"
+                },
+                {
+                    "name": "op",
+                    "type": "int"
+                }
+            ]
+        },
+        {
+            "type": "constructor",
+            "params": [
+                {
+                    "name": "stakeID",
+                    "type": "bytes"
+                },
+                {
+                    "name": "mergeContractCodeHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "adminAddress",
+                    "type": "Ripemd160"
+                }
+            ]
+        }
+    ],
+    "stateProps": [],
+    "buildType": "debug",
+    "file": "file:///d:/workspace/mvcdao-core/contracts/stake/stakeRewardTokenHolder.scrypt",
+    "hex": "515301402097dfd76851bf465e8f715593b217714858bbe9570ff3bd5e33840a34e20ff0262102ba79df5f8ae7604a9830f03c7933028186aede0675a16f025dc4f8be8eec0382201008ce7480da41702918d1ec8e6849ba32b4d65b1e40dc669c31a1e6306b266c0c6d657461636f6e74726163740114559376012493765493767601149376011493760114937601149376012093766093765893765893765493765893765493765493765493765893760114937653930113790124937601149376589376011493768b7601149376012893028001<stakeID><mergeContractCodeHash><adminAddress>013479aa0136797601247f75547f7777880135797601687f7700005279517f75007f7d7701fd87635379537f75517f777601007e8177537a757b7b5379535479937f75537f777b757c677601fe87635379557f75517f777601007e8177537a757b7b5379555479937f75557f777b757c677601ff87635379597f75517f777601007e8177537a757b7b5379595479937f75597f777b757c675379517f75007f777601007e8177537a757b7b5379515479937f75517f777b757c686868757777777682776e55947f75780119947f77012979519c6301377901247f75012f79012f79012f79013379a8707058795479aa7801207f75887601207f777601007e81775579607f755c7f777601007e8177567901707f7501507f775679827752790128959d5679a878885479827701209d557955797e76587955798b0128957f7555790128957f77886d6d6d6d7501347982775679013679527955947f7552790119947f7788013579780119947f7578012d947f7d775a79a988013679767682776e8c7f757855947f777601007e81776f9455947f7577777776a97777765d798764013f79520124957f75510124957f77013c79013c79013c79014079a8707058795479aa7801207f75887601207f777601007e81775579607f755c7f777601007e8177567901707f7501507f775679827752790128959d5679a878885479827701209d557955797e76587955798b0128957f7555790128957f77886d6d6d6d750141798277014279011479607952798277707c52796e013779940124937f7578013779947f77a977778878547952796e6e012779947f757777a977778853797682776e013279940114937f7578013179947f7777777777777701437952796e013079940114937f7578013079947f7777775879013b79558b0114957f75550114957f778876013b79a988780145797682776e013179940114937f7578013079947f777777886d6d6d6d686d6d6d6d67012979529c630137798277016c9d013679a9547988013579013779ad670069686801387976012779012779210ac407f0e4bd44bfc207355a778b046225a7068fc59ee7eda43ad905aadbffc800206c266b30e6a1319c66dc401e5bd6b432ba49688eecd118297041da8074ce0810012979012f79012e79855679aa7676517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e01007e817757795679567956795679537956795479577995939521414136d08c5ed2bf3ba048afe6dcaebafeffffffffffffffffffffffffffffff006e6e9776009f636e936776687777777b757c6e5296a0636e7c947b757c6853798277527982775379012080517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f517f7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e7c7e01205279947f77545379935279930130787e527e54797e58797e527e53797e52797e57797e777777777777777777777777765779ac77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777",
+    "sourceMapFile": ""
+}

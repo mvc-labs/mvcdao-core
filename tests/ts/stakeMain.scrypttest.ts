@@ -58,7 +58,7 @@ const genContract = Common.genContract
 const addInput = Common.addInput
 const addOutput = Common.addOutput
 const USE_DESC = true
-const USE_RELEASE = false
+const USE_RELEASE = true
 
 const StakeMain = genContract('stake/stakeMain', USE_DESC, USE_RELEASE)
 const StakeUpdateContract = genContract('stake/stakeUpdateContract', USE_DESC, USE_RELEASE)
@@ -79,7 +79,7 @@ const StakeRewardTokenHolder = genContract('stake/stakeRewardTokenHolder', USE_D
 const Token = genContract('token/token', true, false)
 const UnlockContractCheck = genContract('tokenUnlockContractCheck', true, false)
 
-const jsonDescr = Common.loadDescription('../out/stakeDeposit_debug_desc.json');
+const jsonDescr = Common.loadDescription('../out/stakeDeposit_release_desc.json');
 export const { TxInputProof, TxOutputProof, BlockRabinData } = buildTypeClasses(jsonDescr);
 
 const rewardBeginTime = 100
