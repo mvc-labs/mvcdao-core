@@ -283,7 +283,7 @@ export const getOutpoint = function(txid: string, index: number) {
     ])
 }
 
-export const genGenesisTxid = function (txid: string, index: number) {
+export const genGenesisOutpoint = function (txid: string, index: number) {
     return Buffer.concat([
         getTxIdBuf(txid),
         getUInt32Buf(index),

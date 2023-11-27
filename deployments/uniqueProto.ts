@@ -13,12 +13,12 @@ export const CUSTOM_DATA_SIZE_OFFSET = GENESISTX_ID_OFFSET + CUSTOM_DATA_SIZE_LE
 
 export const FIX_HEADER_LEN = CUSTOM_DATA_SIZE_OFFSET;
 
-export function getGenesisTxid(scriptBuf: Buffer) {
+export function getGenesisOutpoint(scriptBuf: Buffer) {
     return scriptBuf.subarray(scriptBuf.length - GENESISTX_ID_OFFSET, scriptBuf.length - GENESISTX_ID_OFFSET + ProtoHeader.GENESIS_TXID_LEN)
 }
 
 export function getUniqueID(scriptBuf: Buffer) {
-    return mvc.crypto.Hash.sha256ripemd160(getGenesisTxid(scriptBuf))
+    return mvc.crypto.Hash.sha256ripemd160(getGenesisOutpoint(scriptBuf))
 }
 
 export function getCustomDataLen(scriptBuf: Buffer) {

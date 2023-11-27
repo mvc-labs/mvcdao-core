@@ -76,8 +76,8 @@ const VoteMain = genContract('stake/voteMain', USE_DESC, USE_RELEASE)
 const StakeMergeRewardToken = genContract('stake/stakeMergeRewardToken', USE_DESC, USE_RELEASE)
 const StakeTokenHolder = genContract('stake/stakeTokenHolder', USE_DESC, USE_RELEASE)
 const StakeRewardTokenHolder = genContract('stake/stakeRewardTokenHolder', USE_DESC, USE_RELEASE)
-const Token = genContract('token/token', USE_DESC, USE_RELEASE)
-const UnlockContractCheck = genContract('tokenUnlockContractCheck', USE_DESC, USE_RELEASE)
+const Token = genContract('token/token', true, false)
+const UnlockContractCheck = genContract('tokenUnlockContractCheck', true, false)
 
 const jsonDescr = Common.loadDescription('../out/stakeDeposit_debug_desc.json');
 export const { TxInputProof, TxOutputProof, BlockRabinData } = buildTypeClasses(jsonDescr);
@@ -1433,7 +1433,7 @@ function unlockVoteMain(
     const prevVoteTxProof = getTxOutputProofScrypt(prevVoteTx, prevVoteOutputIndex)
 
     let prevCustomData = new Bytes('')
-    const sid = Common.genGenesisTxid(prevVoteTx.id, prevVoteOutputIndex)
+    const sid = Common.genGenesisOutpoint(prevVoteTx.id, prevVoteOutputIndex)
     if (sid !== voteSensibleID) {
         const prevVoteScriptBuf = prevVoteTx.outputs[prevVoteOutputIndex].script.toBuffer()
         prevCustomData = new Bytes(UniqueProto.getCustomData(prevVoteScriptBuf).toString('hex'))

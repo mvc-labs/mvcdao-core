@@ -5,7 +5,7 @@ export const PROTO_TYPE = 1
 export const PROTO_VERSION = 1
 
 // <op_pushdata> + <type specific data> + <proto header> + <data_len(4 bytes)> + <version(1 bytes)>
-// <token type specific data> = <name(40 bytes)> + <symbol(20 bytes)> + <decimal(1 bytes)> + <address(20 bytes)> + <token amount(8 bytes)> + <genesisHash(20 bytes)> + <genesisTxid(36 bytes)>
+// <token type specific data> = <name(40 bytes)> + <symbol(20 bytes)> + <decimal(1 bytes)> + <address(20 bytes)> + <token amount(8 bytes)> + <genesisHash(20 bytes)> + <genesisOutpoint(36 bytes)>
 
 export const TOKEN_DECIMAL_LEN = 1;
 export const TOKEN_SYMBOLE_LEN = 20;
@@ -46,7 +46,7 @@ export function getTokenID (script: Buffer) {
     return mvc.crypto.Hash.sha256ripemd160(script.subarray(script.length - GENESIS_HASH_OFFSET, script.length - GENESISTX_ID_OFFSET + ProtoHeader.GENESIS_TXID_LEN))
 }
 
-export function getGenesisTxid(script: Buffer) {
+export function getGenesisOutpoint(script: Buffer) {
     return script.subarray(script.length - GENESISTX_ID_OFFSET, script.length - GENESISTX_ID_OFFSET + ProtoHeader.GENESIS_TXID_LEN);
 }
 
@@ -83,10 +83,10 @@ export function getNewTokenScript(scriptBuf: Buffer, address: Buffer, tokenAmoun
     return newScript
 }
 
-export function getNewGenesisScript(scriptBuf: Buffer, genesisTxid: Buffer) {
+export function getNewGenesisScript(scriptBuf: Buffer, genesisOutpoint: Buffer) {
     const newScript = Buffer.concat([
         scriptBuf.subarray(0, scriptBuf.length - GENESISTX_ID_OFFSET),
-        genesisTxid,
+        genesisOutpoint,
         scriptBuf.subarray(scriptBuf.length - GENESISTX_ID_OFFSET + ProtoHeader.GENESIS_TXID_LEN, scriptBuf.length)
     ])
     return newScript

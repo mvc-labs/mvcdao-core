@@ -16,19 +16,20 @@
   },
   "author": "ccoincash",
   "dependencies": {
-    "axios": "^0.26.0",
+    "axios": "^1.6.2",
     "elliptic": ">=6.5.4",
     "glob": "^7.1.6",
     "minimist": "^1.2.5",
-    "mvc-scrypt": "^0.1.0",
-    "watch": "^1.0.2"
+    "mvc-scrypt": "^0.1.6",
+    "scryptlib": "^2.1.36",
+    "watch": "^0.13.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.8",
     "@types/mocha": "^7.0.1",
     "@types/node": "^13.7.6",
     "chai": "^4.2.0",
-    "mocha": "^8.4.0",
+    "mocha": "^10.2.0",
     "ts-node": "^8.6.2",
     "tsconfig-paths": "^3.9.0",
     "typescript": "^3.7.5"

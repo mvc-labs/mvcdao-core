@@ -46,12 +46,12 @@ contract VoteMain {
         require(mainScriptCodeHash == VoteProto.getScriptCodeHash(mainScript, mainScriptLen));
 
         // backtrace
-        bytes genesisTxid = UniqueProto.getGenesisTxid(mainScript, mainScriptLen);
-        if (genesisTxid != hash256(prevTxOutputProof.txHeader) + txInputProof.outputIndexBytes) { 
+        bytes genesisOutpoint = UniqueProto.getGenesisOutpoint(mainScript, mainScriptLen);
+        if (genesisOutpoint != hash256(prevTxOutputProof.txHeader) + txInputProof.outputIndexBytes) { 
             bytes prevMainScript = VoteProto.getNewScriptWithCustomData(mainScript, mainScriptLen, prevCustomData);
             require(sha256(prevMainScript) == prevTxOutputProof.scriptHash);
         }
-        Backtrace.verify(thisOutpoint, txHeader, prevTxInputIndex, prevTxOutputProof, genesisTxid, txInputProof);
+        Backtrace.verify(thisOutpoint, txHeader, prevTxInputIndex, prevTxOutputProof, genesisOutpoint, txInputProof);
 
         require(Tx.checkPreimageSigHashType(txPreimage, ProtoHeader.SIG_HASH_ALL));
     }

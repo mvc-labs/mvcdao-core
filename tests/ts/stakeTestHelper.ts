@@ -75,7 +75,7 @@ export  function unlockStakeMain(
     const prevStakeTxProof = getTxOutputProofScrypt(prevStakeTx, prevStakeOutputIndex)
 
     let prevCustomData = new Bytes('')
-    const sid = Common.genGenesisTxid(prevStakeTx.id, prevStakeOutputIndex)
+    const sid = Common.genGenesisOutpoint(prevStakeTx.id, prevStakeOutputIndex)
     if (sid !== stakeSensibleID) {
         const prevStakeScriptBuf = prevStakeTx.outputs[prevStakeOutputIndex].script.toBuffer()
         prevCustomData = new Bytes(UniqueProto.getCustomData(prevStakeScriptBuf).toString('hex'))
