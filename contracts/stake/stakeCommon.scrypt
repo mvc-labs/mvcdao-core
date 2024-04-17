@@ -63,18 +63,21 @@ library StakeCommon {
         int n = len(data.unlockingTokens) / UNLOCKING_TOKEN_INFO_LEN;
         int count = 0;
         // unlockingTokens must be the ascending order of expired
+        bytes unlockingTokens = b'';
         loop(WITHDRAW_LIMIT) : i {
             if(i < n) {
                 int pos = i * UNLOCKING_TOKEN_INFO_LEN;
                 if (Utils.fromLEUnsigned(data.unlockingTokens[pos: pos + 4]) <= curBlockTime) {
                     sum += Utils.fromLEUnsigned(data.unlockingTokens[pos + 4: pos + 12]);
                     count += 1;
+                } else {
+                    unlockingTokens += data.unlockingTokens[pos: pos + UNLOCKING_TOKEN_INFO_LEN];
                 }
             }
         }       
         require(sum > 0);
         bytes res = genNewLeaf(data);
-        bytes newData = res[: MIN_LEAF_NODE_LENGTH] + data.unlockingTokens[count * UNLOCKING_TOKEN_INFO_LEN:];
+        bytes newData = res[: MIN_LEAF_NODE_LENGTH] + unlockingTokens;
         return {sum, newData};
     }
 

@@ -58,7 +58,7 @@ const genContract = Common.genContract
 const addInput = Common.addInput
 const addOutput = Common.addOutput
 const USE_DESC = true
-const USE_RELEASE = true
+const USE_RELEASE = false
 
 const StakeMain = genContract('stake/stakeMain', USE_DESC, USE_RELEASE)
 const StakeUpdateContract = genContract('stake/stakeUpdateContract', USE_DESC, USE_RELEASE)
@@ -2870,6 +2870,26 @@ describe('Test stake contract unlock In Javascript', () => {
         stakePool.deposit(address2.hashBuffer, BigInt(100000), 0)
         stakePool.preWithdraw(address2.hashBuffer, BigInt(50000), 1)
         testFinishWithdraw(stakePool, 1 + withdrawLockInterval, {wrongSender: address2, expected: false})
+    })
+
+    it('wf7: should success when change withdrawLockInterval', () => {
+        stakePool.deposit(address1.hashBuffer, BigInt(100000), 0)
+        let curBlockTime = 1
+        stakePool.preWithdraw(address1.hashBuffer, BigInt(1000), curBlockTime)
+        curBlockTime = 50
+        stakePool.preWithdraw(address1.hashBuffer, BigInt(4000), curBlockTime)
+        const newWithdrawLockInterval = 50
+        stakePool.admin(rewardAmountPerSecond, curBlockTime, newWithdrawLockInterval)
+        curBlockTime = 70
+        stakePool.preWithdraw(address1.hashBuffer, BigInt(2000), curBlockTime)
+
+        curBlockTime = 130
+        testFinishWithdraw(stakePool, curBlockTime)
+
+        const userInfo = stakePool.getUserInfo(address1.hashBuffer)
+        expect(userInfo?.unlockingTokens.length).equal(1)
+        expect(userInfo?.unlockingTokens[0].amount).equal(BigInt(4000))
+        expect(userInfo?.unlockingTokens[0].expired).equal(150)
     })
 
     it('h1: should success when harvest', async () => {

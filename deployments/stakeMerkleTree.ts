@@ -79,19 +79,17 @@ export class LeafNode {
     getAllExpiredUnlocking(curBlockNum: number, dryRun: boolean = false) {
         let sum: bigint = BigInt(0)
         let n = Math.min(this.unlockingTokens.length, WITHDRAW_LIMIT)
-        let pos = 0
+        const unlockingTokens: any = []
         for (let i = 0; i < n; i++) {
             const info = this.unlockingTokens[i]
             if (info.expired > curBlockNum) {
-                pos = i - 1
-                break;
+                unlockingTokens.push(info)
             } else {
-                pos = i
                 sum += info.amount
             }
         }
         if (!dryRun) {
-            this.unlockingTokens = this.unlockingTokens.slice(pos + 1)
+            this.unlockingTokens = unlockingTokens
         }
         return sum
     }
