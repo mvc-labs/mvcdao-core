@@ -39,6 +39,9 @@ contract StakeAdmin {
         require(hash160(adminPubKey) == this.adminAddress);
         require(checkSig(adminSig, adminPubKey));
 
+        // withdrawLockInterval should be greater than 0
+        require(withdrawLockInterval > 0);
+
         // getDataPart
         bytes lockingScript = SigHash.scriptCode(txPreimage);
         int scriptLen = len(lockingScript);

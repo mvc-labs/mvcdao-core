@@ -2398,8 +2398,9 @@ function admin(stakePool: StakePool, rewardAmountPerSecond: bigint, lastRewardTi
 
     const prevoutsBuf = Buffer.concat(prevouts)
 
+    const withdrawInterval = options.withdrawLockInterval !== undefined ? options.withdrawLockInterval : withdrawLockInterval
     // output
-    let scriptBuf = StakeProto.getNewStakeScriptFromAdmin(stakeMain.lockingScript.toBuffer(), rewardAmountPerSecond, lastRewardTime, withdrawLockInterval)
+    let scriptBuf = StakeProto.getNewStakeScriptFromAdmin(stakeMain.lockingScript.toBuffer(), rewardAmountPerSecond, lastRewardTime, withdrawInterval)
     addOutput(tx, mvc.Script.fromBuffer(scriptBuf), inputSatoshis)
 
     // verify
@@ -2408,7 +2409,7 @@ function admin(stakePool: StakePool, rewardAmountPerSecond: bigint, lastRewardTi
     const senderAddress = privKey.toAddress()
     const pubKey = toHex(privKey.publicKey)
     const adminSig = toHex(signTx(tx, privKey, adminContract.lockingScript, inputSatoshis, 0))
-    unlockStakeAdmin(tx, prevoutsBuf, adminContract, 0, pubKey, adminSig, stakeTx, rewardBeginTime, rewardEndTime, rewardAmountPerSecond, lastRewardTime, withdrawLockInterval, senderAddress, 0, options.expected)
+    unlockStakeAdmin(tx, prevoutsBuf, adminContract, 0, pubKey, adminSig, stakeTx, rewardBeginTime, rewardEndTime, rewardAmountPerSecond, lastRewardTime, withdrawInterval, senderAddress, 0, options.expected)
 
     // stake
     const prevStakeTxInputIndex = 0
@@ -2947,6 +2948,10 @@ describe('Test stake contract unlock In Javascript', () => {
 
     it('a2: should failed when admin with wrong privateKey', () => {
         admin(stakePool, BigInt(9999), 2, {wrongPrivKey: privateKey2, expected: false})
+    })
+
+    it('a3: should failed when setting withdrawLockInterval to 0', () => {
+        admin(stakePool, BigInt(9999), 2, {withdrawLockInterval: 0, expected: false})
     })
 
     it('m1: should success when merge reward token', () => {
