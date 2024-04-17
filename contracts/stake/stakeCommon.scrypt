@@ -76,6 +76,9 @@ library StakeCommon {
             }
         }       
         require(sum > 0);
+        if (n > WITHDRAW_LIMIT) {
+            unlockingTokens += data.unlockingTokens[WITHDRAW_LIMIT * UNLOCKING_TOKEN_INFO_LEN: ];
+        }
         bytes res = genNewLeaf(data);
         bytes newData = res[: MIN_LEAF_NODE_LENGTH] + unlockingTokens;
         return {sum, newData};

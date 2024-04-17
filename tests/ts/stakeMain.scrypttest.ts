@@ -57,7 +57,7 @@ const blockHeightRabinPubKeyVerifyArray = RabinUtils.rabinPubKeyVerifyArray
 const genContract = Common.genContract
 const addInput = Common.addInput
 const addOutput = Common.addOutput
-const USE_DESC = true
+const USE_DESC = false
 const USE_RELEASE = false
 
 const StakeMain = genContract('stake/stakeMain', USE_DESC, USE_RELEASE)
@@ -2890,6 +2890,33 @@ describe('Test stake contract unlock In Javascript', () => {
         expect(userInfo?.unlockingTokens.length).equal(1)
         expect(userInfo?.unlockingTokens[0].amount).equal(BigInt(4000))
         expect(userInfo?.unlockingTokens[0].expired).equal(150)
+    })
+
+    it('wf8: should success when change withdrawLockInterval', () => {
+        stakePool.deposit(address1.hashBuffer, BigInt(100000), 0)
+        let curBlockTime = 1
+        stakePool.preWithdraw(address1.hashBuffer, BigInt(1000), curBlockTime)
+        curBlockTime = 50
+        for (let i = 0; i < 4; i++) {
+            stakePool.preWithdraw(address1.hashBuffer, BigInt(4000 + i), curBlockTime)
+        }
+        const newWithdrawLockInterval = 50
+        stakePool.admin(rewardAmountPerSecond, curBlockTime, newWithdrawLockInterval)
+        curBlockTime = 70
+        stakePool.preWithdraw(address1.hashBuffer, BigInt(2000), curBlockTime)
+
+        curBlockTime = 130
+        testFinishWithdraw(stakePool, curBlockTime)
+
+        let userInfo = stakePool.getUserInfo(address1.hashBuffer)
+        expect(userInfo?.unlockingTokens.length).equal(5)
+        expect(userInfo?.unlockingTokens[4].amount).equal(BigInt(2000))
+        expect(userInfo?.unlockingTokens[4].expired).equal(120)
+
+        curBlockTime = 150
+        testFinishWithdraw(stakePool, curBlockTime)
+        userInfo = stakePool.getUserInfo(address1.hashBuffer)
+        expect(userInfo?.unlockingTokens.length).equal(0)
     })
 
     it('h1: should success when harvest', async () => {

@@ -88,6 +88,9 @@ export class LeafNode {
                 sum += info.amount
             }
         }
+        for (let i = WITHDRAW_LIMIT; i < this.unlockingTokens.length; i++) {
+            unlockingTokens.push(this.unlockingTokens[i])
+        }
         if (!dryRun) {
             this.unlockingTokens = unlockingTokens
         }
