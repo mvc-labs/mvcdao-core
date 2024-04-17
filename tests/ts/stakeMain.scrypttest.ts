@@ -3215,4 +3215,14 @@ describe('Test stake contract unlock In Javascript', () => {
         stakePool.preWithdraw(address1.hashBuffer, BigInt(50000), 1)
         testFinishWithdrawMvc(stakePool, 1 + withdrawLockInterval, {wrongOutputSatoshis: true, expected: false})
     })
+
+    it('up: updatePool after the rewardEndTime', () => {
+        const stakePool = new StakePool(rewardAmountFactor, rewardBeginTime, rewardEndTime, rewardAmountPerSecond, 0, BigInt(0), BigInt(0), BigInt(0), new MerkleTreeData(Buffer.alloc(0), StakeProto.TREE_HEIGHT), 0)
+        depositMvc(stakePool, rewardBeginTime + 1, BigInt(10000))
+        harvest(stakePool, rewardEndTime - 100)
+        testWithdrawMvc(stakePool, rewardEndTime - 100, BigInt(10000))
+        depositMvc(stakePool, rewardEndTime + 1, BigInt(10000)) // <-- stake after the rewardEndTime 
+        depositMvc(stakePool, rewardEndTime + 1000, BigInt(10000)) // <-- stake after the rewardEndTime 
+        expect(stakePool.accPoolPerShare).equal(9999979900000000000000000000n)
+    })
 });

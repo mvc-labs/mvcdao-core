@@ -64,7 +64,9 @@ export class StakePool {
             const endTime = Math.min(curBlockTime, this.rewardEndTime)
             const startTime = Math.max(this.lastRewardTime, this.rewardBeginTime)
             let timeOffset = BigInt(endTime - startTime)
-            this.accPoolPerShare = this.accPoolPerShare + timeOffset * perBlockReward / this.poolTokenAmount
+            if (timeOffset > BigInt(0)) {
+                this.accPoolPerShare = this.accPoolPerShare + timeOffset * perBlockReward / this.poolTokenAmount
+            }
         }
 
         if (curBlockTime > this.lastRewardTime) {

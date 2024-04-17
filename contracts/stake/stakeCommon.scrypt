@@ -31,7 +31,9 @@ library StakeCommon {
             int endTime = min(curBlockTime, stakeInfo.rewardEndTime);
             int startTime = max(stakeInfo.lastRewardTime, stakeInfo.rewardBeginTime);
             int timeOffset = endTime - startTime;
-            accPoolPerShare += timeOffset * stakeInfo.rewardAmountPerSecond * stakeInfo.rewardAmountFactor / stakeInfo.poolTokenAmount;
+            if (timeOffset > 0) {
+                accPoolPerShare += timeOffset * stakeInfo.rewardAmountPerSecond * stakeInfo.rewardAmountFactor / stakeInfo.poolTokenAmount;
+            }
         }
         return accPoolPerShare;
     }
